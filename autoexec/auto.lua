@@ -1,0 +1,1 @@
+loadfile'__auto.lua'()
