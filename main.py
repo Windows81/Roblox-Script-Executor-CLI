@@ -1,5 +1,13 @@
+import os
 import shlex
 import clr
+
+clr.AddReference("System.Net")
+import System.Net
+
+# Quick hack to take care of TLS problems on the WRD side.
+System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType(16320)
+os.chdir(os.path.dirname(__file__))
 
 clr.AddReference("WeAreDevs_API")
 import WeAreDevs_API
@@ -23,6 +31,7 @@ class exec_api:
 
 class api_wrd(exec_api):
     def __init__(self):
+
         self.ex = WeAreDevs_API.ExploitAPI()
         self.ex.LaunchExploit()
         while not self.is_attached():
@@ -79,17 +88,63 @@ class exec_in:
         while True:
             yield f(*args, **kwargs)
 
-    def process(self, f=input, *args, **kwargs):
-        def cast_to_type(s):
-            try:
-                return float(s)
-            except ValueError:
-                return s
+    def _params(self, body: str) -> list[str]:
+        qm = {
+            "'": "'",
+            '"': '"',
+            "[": "]",
+            "(": ")",
+            "{": "}",
+        }
+        w = []
+        s = ""
+        qc = 0
+        q = None
+        e = False
+        for c in body.split("--", 1)[0].strip():
+            if e:
+                s += c
+                e = False
+                continue
+            if c == "\\":
+                s += c
+                e = True
+                continue
+            if c == qm.get(q, None):
+                s += c
+                qc -= 1
+                if qc == 0:
+                    q = None
+            elif q:
+                if c == q:
+                    qc += 1
+                s += c
+                e = False
+            else:
+                if c == " ":
+                    if s == "":
+                        w.append("nil")
+                    else:
+                        w.append(s)
+                    s = ""
+                elif c in qm:
+                    s += c
+                    q = c
+                    qc += 1
+                else:
+                    s += c
+                    e = False
+        if s == "":
+            w.append("nil")
+        else:
+            w.append(s)
+        return w
 
+    def process(self, f=input, *args, **kwargs):
         input_gen = self._input(f, *args, **kwargs)
         line = next(input_gen)
-        head, body = (*line.split(" ", 1), None)[0:2]
-        if head == "script":
+        head, body = (*line.split(" ", 1), "")[0:2]
+        if head == "snippet":
             lines = [body]
             while True:
                 s_line = next(input_gen).strip()
@@ -98,8 +153,16 @@ class exec_in:
                     break
             script_body = "\n".join(lines)
 
+        elif head == "exit":
+            exit()
+
+        elif head == "list":
+            for p in os.listdir("workspace"):
+                if p.lower().endswith("lua"):
+                    print(f"- {p}")
+
         else:
-            join = "".join(f", {s}" for s in shlex.split(body, posix=False))
+            join = "".join(f", {s}" for s in self._params(body))
             script_body = f'exec("{head}"{join})'
 
         if script_body:
@@ -108,6 +171,7 @@ class exec_in:
 
 if __name__ == "__main__":
     api = api_wrd()
+    print("Executor has been successfully injected.")
     in_obj = exec_in(api)
     while True:
         in_obj.process()
