@@ -1,3 +1,4 @@
 workspace/**
 !workspace/__auto.lua
+*.lnk
 logs/**

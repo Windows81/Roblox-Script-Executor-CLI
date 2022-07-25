@@ -1,87 +1,22 @@
-import os
-import shlex
+import exec_wearedevs
+import exec_base
 import clr
+import os
+
+clr.AddReference("System.IO")
+import System.IO
+
+clr.AddReference("System.IO.Pipes")
+import System.IO.Pipes
 
 clr.AddReference("System.Net")
 import System.Net
 
-# Quick hack to take care of TLS problems on the WRD side.
-System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType(16320)
-os.chdir(os.path.dirname(__file__))
 
-clr.AddReference("WeAreDevs_API")
-import WeAreDevs_API
+class exec_processor:
+    api: exec_base.exec_api
 
-clr.AddReference("EasyExploits")
-import EasyExploits
-
-clr.AddReference("OxygenU_API")
-import OxygenU_API
-
-
-class exec_api:
-    ex: any
-
-    def exec(self, script: str):
-        raise NotImplementedError()
-
-    def is_attached(self):
-        raise NotImplementedError()
-
-
-class api_wrd(exec_api):
-    def __init__(self):
-
-        self.ex = WeAreDevs_API.ExploitAPI()
-        self.ex.LaunchExploit()
-        while not self.is_attached():
-            input("Hit enter when injection is done!")
-
-    def exec(self, script: str):
-        if not self.is_attached():
-            raise RuntimeError("WRD API is not injected.")
-        return self.ex.SendLuaScript(script)
-
-    def is_attached(self):
-        return self.ex.isAPIAttached()
-
-
-class api_eze(exec_api):
-    def __init__(self):
-        self.ex = EasyExploits.Module()
-        self.ex.LaunchExploit()
-        if not self.is_attached():
-            raise RuntimeError("Unable to inject EasyExploits API.")
-
-    def exec(self, script: str):
-        if not self.is_attached():
-            raise RuntimeError("EasyExploits API is not injected.")
-        return self.ex.ExecuteScript(script)
-
-    def is_attached(self):
-        return self.ex.isInjected()
-
-
-class api_oxy(exec_api):
-    def __init__(self):
-        self.ex = OxygenU_API.Client()
-        self.ex.Attach()
-        if not self.is_attached():
-            raise RuntimeError("Unable to inject OxygenU API.")
-
-    def exec(self, script: str):
-        if not self.is_attached():
-            raise RuntimeError("OxygenU API is not injected.")
-        return self.ex.Execute(script)
-
-    def is_attached(self):
-        return self.ex.isOXygenUAttached()
-
-
-class exec_in:
-    api: exec_api
-
-    def __init__(self, api: exec_api):
+    def __init__(self, api: exec_base.exec_api):
         self.api = api
 
     def _input(self, f=input, *args, **kwargs):
@@ -144,12 +79,18 @@ class exec_in:
         input_gen = self._input(f, *args, **kwargs)
         line = next(input_gen)
         head, body = (*line.split(" ", 1), "")[0:2]
+
+        # One-line snippet.
         if head == "snippet":
+            script_body = body
+
+        # Multi-line script.
+        elif head == "script":
             lines = [body]
             while True:
-                s_line = next(input_gen).strip()
+                s_line = next(input_gen)
                 lines.append(s_line)
-                if len(s_line) == 0:
+                if len(s_line.strip()) == 0:
                     break
             script_body = "\n".join(lines)
 
@@ -170,8 +111,8 @@ class exec_in:
 
 
 if __name__ == "__main__":
-    api = api_wrd()
+    api = exec_wearedevs.api_wrd_exe()
     print("Executor has been successfully injected.")
-    in_obj = exec_in(api)
+    in_obj = exec_processor(api)
     while True:
         in_obj.process()
