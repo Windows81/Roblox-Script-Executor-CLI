@@ -1,117 +1,56 @@
-import exec_wearedevs
-import exec_base
-import clr
 import os
 
-clr.AddReference("System.IO")
-import System.IO
+# Makes importing DLLs manageable.
+cdir = os.path.dirname(__file__)
+if cdir != "":
+    os.chdir(cdir)
 
-clr.AddReference("System.IO.Pipes")
-import System.IO.Pipes
+from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
+from executors.base import api_base, api_upd
+from logic.processor import exec_processor
+from executors.oxygen import api_oxy
+import argparse
 
-clr.AddReference("System.Net")
-import System.Net
+EXEC_TYPES: dict[str : type[api_base]] = {
+    "wearedevs-dll": api_wrd_dll,
+    "wearedevs-inj": api_wrd_inj,
+    "wearedevs-exe": api_wrd_exe,
+    "wearedevs": api_wrd_exe,
+    "wrd-dll": api_wrd_dll,
+    "wrd-inj": api_wrd_inj,
+    "wrd-exe": api_wrd_exe,
+    "wrd": api_wrd_exe,
+    "oxygen-u": api_oxy,
+    "oxygenu": api_oxy,
+    "oxygen": api_oxy,
+    "oxy": api_oxy,
+}
 
 
-class exec_processor:
-    api: exec_base.exec_api
-
-    def __init__(self, api: exec_base.exec_api):
-        self.api = api
-
-    def _input(self, f=input, *args, **kwargs):
-        while True:
-            yield f(*args, **kwargs)
-
-    def _params(self, body: str) -> list[str]:
-        qm = {
-            "'": "'",
-            '"': '"',
-            "[": "]",
-            "(": ")",
-            "{": "}",
-        }
-        w = []
-        s = ""
-        qc = 0
-        q = None
-        e = False
-        for c in body.split("--", 1)[0].strip():
-            if e:
-                s += c
-                e = False
-                continue
-            if c == "\\":
-                s += c
-                e = True
-                continue
-            if c == qm.get(q, None):
-                s += c
-                qc -= 1
-                if qc == 0:
-                    q = None
-            elif q:
-                if c == q:
-                    qc += 1
-                s += c
-                e = False
-            else:
-                if c == " ":
-                    if s == "":
-                        w.append("nil")
-                    else:
-                        w.append(s)
-                    s = ""
-                elif c in qm:
-                    s += c
-                    q = c
-                    qc += 1
-                else:
-                    s += c
-                    e = False
-        if s == "":
-            w.append("nil")
-        else:
-            w.append(s)
-        return w
-
-    def process(self, f=input, *args, **kwargs):
-        input_gen = self._input(f, *args, **kwargs)
-        line = next(input_gen)
-        head, body = (*line.split(" ", 1), "")[0:2]
-
-        # One-line snippet.
-        if head == "snippet":
-            script_body = body
-
-        # Multi-line script.
-        elif head == "script":
-            lines = [body]
-            while True:
-                s_line = next(input_gen)
-                lines.append(s_line)
-                if len(s_line.strip()) == 0:
-                    break
-            script_body = "\n".join(lines)
-
-        elif head == "exit":
-            exit()
-
-        elif head == "list":
-            for p in os.listdir("workspace"):
-                if p.lower().endswith("lua"):
-                    print(f"- {p}")
-
-        else:
-            join = "".join(f", {s}" for s in self._params(body))
-            script_body = f'exec("{head}"{join})'
-
-        if script_body:
-            return self.api.exec(script_body)
+def get_parse():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "executor",
+        type=str.lower,
+        default="wrd-exe",
+        choices=list(EXEC_TYPES),
+        nargs="?",
+    )
+    parser.add_argument("--update", action="store_true")
+    return parser
 
 
 if __name__ == "__main__":
-    api = exec_wearedevs.api_wrd_exe()
+    parser = get_parse()
+    args = parser.parse_args().__dict__
+    api_class = EXEC_TYPES[args["executor"]]
+    if args["update"]:
+        if issubclass(api_class, api_upd):
+            api_class.update()
+        else:
+            print("Execution method must be updated manually.")
+
+    api = api_class()
     print("Executor has been successfully injected.")
     in_obj = exec_processor(api)
     while True:

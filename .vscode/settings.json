@@ -1,6 +1,8 @@
 {
 	"robloxLsp.diagnostics.globals": [
 		"rsexec",
-		"loadfile"
+		"loadfile",
+		"makefolder",
+		"writefile"
 	]
 }

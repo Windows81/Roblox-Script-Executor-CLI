@@ -1,4 +1,6 @@
-workspace/**
-!workspace/__auto.lua
+WORKSPACE/**
+!WORKSPACE/__auto.lua
 *.lnk
-logs/**
+LOGS/**
+*/__pycache__/*
+__pycache__/*
