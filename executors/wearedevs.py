@@ -43,8 +43,8 @@ class api_wrd_inj(base.api_inj, base.api_upd):
         data = requests.get(api_wrd_inj.JSON_URL).json()
         if data["exploit-module"]["patched"]:
             raise FileNotFoundError()
-        url = data["exploit-module"]["download"]
 
+        url = data["exploit-module"]["download"]
         with open(api_wrd_inj.FILE_PATH, "wb") as f:
             f.write(requests.get(url).content)
 
@@ -74,7 +74,11 @@ class api_wrd_exe(base.api_inj, base.api_upd):
         data = requests.get(api_wrd_exe.JSON_URL).json()
         if data["exploit-module"]["patched"]:
             raise FileNotFoundError()
-        url = data["qdRFzx_exe"]
 
+        url = data["qdRFzx_exe"]
         with open(api_wrd_exe.FILE_PATH, "wb") as f:
+            f.write(requests.get(url).content)
+
+        url = data["exploit-module"]["download"]
+        with open(api_wrd_inj.FILE_PATH, "wb") as f:
             f.write(requests.get(url).content)

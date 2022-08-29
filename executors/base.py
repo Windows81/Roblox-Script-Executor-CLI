@@ -27,9 +27,6 @@ class api_base:
     def is_attached(self):
         raise NotImplementedError()
 
-    def __del__(self):
-        raise ResourceWarning()
-
 
 class api_inj(api_base):
     def _write_pipe(self, body: str, pipe_name: str):
