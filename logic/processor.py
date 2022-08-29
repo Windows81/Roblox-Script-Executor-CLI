@@ -21,6 +21,8 @@ class exec_processor:
             "(": ")",
             "{": "}",
         }
+        encap_k = "".join(encap_map.keys())
+        encap_v = "".join(encap_map.values())
         params = []
         param_buf = ""
         escaped = False
@@ -47,11 +49,16 @@ class exec_processor:
             # Executes if the last encap character's complement is found.
             if len(encap_l) and ch == encap_l[-1][1]:
                 last_i, last_c = encap_l.pop()
-                if last_c == "]":
-                    buf = (_ for _ in [param_buf[last_i + 1 :]])
-                    param_buf = param_buf[0:last_i] + self.parse(buf)
-                else:
-                    param_buf += ch
+                param_buf += ch
+                if last_i == 0 and last_c == "]":
+                    do_parse = True
+                elif last_c == ")" or last_c == "]":
+                    lmatch = param_buf[last_i + 1] == "["
+                    rmatch = param_buf[-2] == "]"
+                    do_parse = lmatch and rmatch
+                if do_parse:
+                    trim = param_buf[last_i:].lstrip(encap_k).rstrip(encap_v)
+                    param_buf = param_buf[0:last_i] + self.parse((_ for _ in [trim]))
                 continue
 
             # Executes if an encapsulation character is found.
