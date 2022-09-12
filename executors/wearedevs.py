@@ -48,6 +48,10 @@ class api_wrd_inj(base.api_inj, base.api_upd):
         with open(api_wrd_inj.FILE_PATH, "wb") as f:
             f.write(requests.get(url).content)
 
+        url = data["injDep"]
+        with open("kernel64.sys.dll", "wb") as f:
+            f.write(requests.get(url).content)
+
 
 class api_wrd_exe(base.api_inj, base.api_upd):
     FILE_PATH = "finj.exe"
@@ -58,27 +62,27 @@ class api_wrd_exe(base.api_inj, base.api_upd):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
-        while True:
+        while self.PROCESS.poll() == None:
             l = self.PROCESS.stdout.readline()
+            if len(l) == 0:
+                break
             if b"Could not find call!" in l:
                 break
             if b"Injected" in l:
                 break
-        self.PROCESS.communicate()
+        # self.PROCESS.communicate()
 
     def exec(self, script: str):
         self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
 
     @staticmethod
     def update():
+        api_wrd_inj.update()
+
         data = requests.get(api_wrd_exe.JSON_URL).json()
         if data["exploit-module"]["patched"]:
             raise FileNotFoundError()
 
         url = data["qdRFzx_exe"]
         with open(api_wrd_exe.FILE_PATH, "wb") as f:
-            f.write(requests.get(url).content)
-
-        url = data["exploit-module"]["download"]
-        with open(api_wrd_inj.FILE_PATH, "wb") as f:
             f.write(requests.get(url).content)
