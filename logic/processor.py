@@ -151,6 +151,7 @@ class exec_processor:
                     params.append(finalise(param_buf))
                     param_buf = ""
                     max_split -= 1
+                    i = -1
                 continue
 
             else:
