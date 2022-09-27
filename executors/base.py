@@ -30,15 +30,18 @@ class api_base:
 
 class api_inj(api_base):
     def _write_pipe(self, body: str, pipe_name: str):
-        pipe_args = [".", pipe_name, System.IO.Pipes.PipeDirection.Out]
-        pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
-        pipe.Connect(666)
+        try:
+            pipe_args = [".", pipe_name, System.IO.Pipes.PipeDirection.Out]
+            pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
+            pipe.Connect(666)
 
-        writer_args = [pipe]
-        writer = System.IO.StreamWriter(*writer_args)
-        writer.Write(body)
-        writer.Dispose()
-        pipe.Dispose()
+            writer_args = [pipe]
+            writer = System.IO.StreamWriter(*writer_args)
+            writer.Write(body)
+            writer.Dispose()
+            pipe.Dispose()
+        except System.TimeoutException:
+            raise ConnectionError("Fatal: unable to connect to pipe.")
 
     # https://github.com/penghwee-sng/penetration-testing-snippets/blob/2d3ed6ee547657c3dc36951bf186dea9a3950af7/dll/dll_injector.py
     def _inject(self, path: str) -> None:

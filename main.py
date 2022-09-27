@@ -1,4 +1,5 @@
 import os
+from executors.krnl import api_krnl_exe
 
 # Makes importing DLLs manageable.
 cdir = os.path.dirname(__file__)
@@ -15,10 +16,12 @@ EXEC_TYPES: dict[str : type[api_base]] = {
     "wearedevs-dll": api_wrd_dll,
     "wearedevs-inj": api_wrd_inj,
     "wearedevs-exe": api_wrd_exe,
+    "krnl-exe": api_krnl_exe,
     "wearedevs": api_wrd_exe,
     "wrd-dll": api_wrd_dll,
     "wrd-inj": api_wrd_inj,
     "wrd-exe": api_wrd_exe,
+    "krnl": api_krnl_exe,
     "wrd": api_wrd_exe,
     "oxygen-u": api_oxy,
     "oxygenu": api_oxy,
@@ -32,6 +35,7 @@ def get_parse():
     parser.add_argument(
         "executor",
         type=str.lower,
+        # default="krnl",
         default="wrd-exe",
         choices=list(EXEC_TYPES),
         nargs="?",
@@ -50,8 +54,11 @@ if __name__ == "__main__":
         else:
             print("Execution method must be updated manually.")
 
-    api = api_class()
-    print("Executor has been successfully injected.")
-    in_obj = exec_processor(api)
-    while True:
-        in_obj.process()
+    try:
+        api = api_class()
+        print("Executor has been successfully injected.")
+        in_obj = exec_processor(api)
+        while True:
+            in_obj.process()
+    except ConnectionError as e:
+        print(e)

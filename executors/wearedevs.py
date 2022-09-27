@@ -3,6 +3,14 @@ import subprocess
 import requests
 import clr
 
+
+def patch_prompt():
+    p = input("The WeAreDevs API is currently patched. Install? (Y/n) ").lower()
+    if p == "n":
+        return False
+    return True
+
+
 clr.AddReference("System.Net")
 import System.Net
 
@@ -35,14 +43,19 @@ class api_wrd_inj(base.api_inj, base.api_upd):
     FILE_PATH = "exploit-main.dll"
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
 
+    def __init__(self):
+        raise NotImplementedError(
+            "32-bit DLL doesn't work with 64-bit RobloxPlayerBeta."
+        )
+
     def exec(self, script: str):
         self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
 
     @staticmethod
     def update():
         data = requests.get(api_wrd_inj.JSON_URL).json()
-        if data["exploit-module"]["patched"]:
-            raise FileNotFoundError()
+        if data["exploit-module"]["patched"] and not patch_prompt():
+            exit()
 
         url = data["exploit-module"]["download"]
         with open(api_wrd_inj.FILE_PATH, "wb") as f:
@@ -66,22 +79,30 @@ class api_wrd_exe(base.api_inj, base.api_upd):
             l = self.PROCESS.stdout.readline()
             if len(l) == 0:
                 break
-            if b"Could not find call!" in l:
-                break
+            # if b"Could not find call!" in l:
+            # raise ConnectionError("Fatal: could not find call!")
+            if b"unsupported" in l:
+                raise ConnectionError("Fatal: unsupported Roblox version!")
             if b"Injected" in l:
                 break
-        # self.PROCESS.communicate()
+        self.PROCESS.communicate()
 
     def exec(self, script: str):
         self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
 
     @staticmethod
     def update():
-        api_wrd_inj.update()
-
         data = requests.get(api_wrd_exe.JSON_URL).json()
-        if data["exploit-module"]["patched"]:
-            raise FileNotFoundError()
+        if data["exploit-module"]["patched"] and not patch_prompt():
+            exit()
+
+        url = data["exploit-module"]["download"]
+        with open("exploit-main.dll", "wb") as f:
+            f.write(requests.get(url).content)
+
+        url = data["injDep"]
+        with open("kernel64.sys.dll", "wb") as f:
+            f.write(requests.get(url).content)
 
         url = data["qdRFzx_exe"]
         with open(api_wrd_exe.FILE_PATH, "wb") as f:

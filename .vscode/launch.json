@@ -1,7 +1,4 @@
 {
-	// Use IntelliSense to learn about possible attributes.
-	// Hover to view descriptions of existing attributes.
-	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
 		{
@@ -23,6 +20,32 @@
 			"console": "integratedTerminal",
 			"justMyCode": true,
 			"args": []
+		},
+		{
+			"name": "C/C++: gcc.exe build and debug ckrnl",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/ckrnl.exe",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"miDebuggerPath": "C:\\Program Files (x86)\\mingw32\\bin\\gdb.exe",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Set Disassembly Flavor to Intel",
+					"text": "-gdb-set disassembly-flavor intel",
+					"ignoreFailures": true
+				}
+			],
+			"preLaunchTask": "C/C++: gcc.exe build ckrnl"
 		}
 	]
 }

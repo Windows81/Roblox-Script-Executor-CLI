@@ -189,8 +189,20 @@ class exec_processor:
             return None
 
         elif head_l in ["repeat", "r"]:
-            [count, script_body, *_] = self._param_list(body, max_split=1) + 2 * [""]
-            return f"for I=1,({count})do\n{script_body}\nend"
+            [var, rep_cmd, *_] = self._param_list(body, max_split=1) + 2 * [""]
+            append_block = f"T[I]={self.parse((_ for _ in [rep_cmd]))}"
+            table_block = f"for I,V in next,({var})do\n{append_block}\nend"
+            incr_block = f"for I=1,({var})do\n{append_block}\nend"
+            return (
+                f"(function()\nlocal T={{}}\n"
+                + f"if typeof({var})=='table'then\n{table_block}\n"
+                + f"else\n{incr_block}\nend\n"
+                + f"return T\nend)()"
+            )
+
+        elif head_l in ["batch", "b"]:
+            [var, script_body, *_] = self._param_list(body, max_split=1) + 2 * [""]
+            return f"for I=1,({var})do\n{script_body}\nend"
 
         elif head_l == ["exit", "e"]:
             exit()
