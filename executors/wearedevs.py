@@ -75,6 +75,8 @@ class api_wrd_exe(base.api_inj, base.api_upd):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
+        self.PROCESS.communicate()
+        return
         while self.PROCESS.poll() == None:
             l = self.PROCESS.stdout.readline()
             if len(l) == 0:
@@ -85,7 +87,6 @@ class api_wrd_exe(base.api_inj, base.api_upd):
                 raise ConnectionError("Fatal: unsupported Roblox version!")
             if b"Injected" in l:
                 break
-        self.PROCESS.communicate()
 
     def exec(self, script: str):
         self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
