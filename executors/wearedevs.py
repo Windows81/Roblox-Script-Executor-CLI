@@ -75,7 +75,6 @@ class api_wrd_exe(base.api_inj, base.api_upd):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
-        self.PROCESS.communicate()
         return
         while self.PROCESS.poll() == None:
             l = self.PROCESS.stdout.readline()
