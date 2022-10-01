@@ -5,7 +5,7 @@
 			"name": "Python: Update/Exec",
 			"type": "python",
 			"request": "launch",
-			"program": "main.py",
+			"program": "src/main.py",
 			"console": "integratedTerminal",
 			"justMyCode": true,
 			"args": [
@@ -16,7 +16,7 @@
 			"name": "Python: Exec",
 			"type": "python",
 			"request": "launch",
-			"program": "main.py",
+			"program": "src/main.py",
 			"console": "integratedTerminal",
 			"justMyCode": true,
 			"args": []
