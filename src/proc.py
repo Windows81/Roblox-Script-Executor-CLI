@@ -232,8 +232,8 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
     return f'rsexec("{head}"{join})'
 
 
-def parse_str(api, s):
-    return parse(api, (_ for _ in [s]))
+def parse_str(api, s, level=0):
+    return parse(api, (_ for _ in [s]), level)
 
 
 # Shared resource pool to prevent file collisions.

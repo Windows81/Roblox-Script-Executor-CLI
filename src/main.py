@@ -15,7 +15,7 @@ os.chdir(cdir)
 from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
 from executors.base import api_base, api_upd
 from executors.oxygen import api_oxy
-from exec_proc import process
+from proc import process
 import argparse
 
 EXEC_TYPES: dict[str : type[api_base]] = {
