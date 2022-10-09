@@ -23,6 +23,7 @@ import WeAreDevs_API
 
 class api_wrd_dll(base.api_base):
     def __init__(self):
+        super().__init__()
         self.ex = WeAreDevs_API.ExploitAPI()
         if not self.ex.LaunchExploit():
             raise SystemError()
@@ -72,10 +73,12 @@ class api_wrd_exe(base.api_inj, base.api_upd):
     PROCESS: subprocess.Popen
 
     def __init__(self):
+        super().__init__()
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
         return
+        # let's skip the polling process because WRD doesn't work when EXE is first used to inject.
         while self.PROCESS.poll() == None:
             l = self.PROCESS.stdout.readline()
             if len(l) == 0:

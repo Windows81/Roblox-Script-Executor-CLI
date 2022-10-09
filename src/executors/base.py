@@ -19,7 +19,12 @@ import System.Net
 
 
 class api_base:
-    ex: any
+    OUTPUT_PATH_LUA: str = f"./_output.dat"
+    OUTPUT_PATH_PY: str = f"./workspace/{OUTPUT_PATH_LUA}"
+
+    def __init__(self):
+        with open(self.OUTPUT_PATH_PY, "w") as _:
+            pass
 
     def exec(self, script: str):
         raise NotImplementedError()
@@ -29,6 +34,9 @@ class api_base:
 
 
 class api_inj(api_base):
+    def __init__(self):
+        super().__init__()
+
     def _write_pipe(self, body: str, pipe_name: str):
         try:
             pipe_args = [".", pipe_name, System.IO.Pipes.PipeDirection.Out]
@@ -92,6 +100,9 @@ class api_inj(api_base):
 
 class api_upd(api_base):
     FILE_PATH: str
+
+    def __init__(self):
+        super().__init__()
 
     def _load(self):
         if os.path.isfile(self.FILE_PATH):

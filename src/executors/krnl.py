@@ -9,6 +9,7 @@ class api_krnl_exe(base.api_inj, base.api_upd):
     DLL_URL = "https://k-storage.com/bootstrapper/files/krnl.dll"
 
     def __init__(self):
+        super().__init__()
         self.PROCESS = subprocess.Popen(
             [self.EXE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )

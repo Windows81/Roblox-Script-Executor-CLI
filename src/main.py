@@ -12,11 +12,10 @@ if cdir == "":
 
 sys.path.append(cdir)
 os.chdir(cdir)
-
 from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
 from executors.base import api_base, api_upd
 from executors.oxygen import api_oxy
-from processor import exec_processor
+from exec_proc import process
 import argparse
 
 EXEC_TYPES: dict[str : type[api_base]] = {
@@ -64,8 +63,8 @@ if __name__ == "__main__":
     try:
         api = api_class()
         print("Executor has been successfully injected.")
-        in_obj = exec_processor(api)
-        while True:
-            in_obj.process()
+        process(api)
+    except KeyboardInterrupt:
+        exit(0)
     except ConnectionError as e:
         print(e)

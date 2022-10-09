@@ -8,6 +8,7 @@ import OxygenU_API
 
 class api_oxy(base.api_base):
     def __init__(self):
+        super().__init__()
         self.ex = OxygenU_API.Client()
         self.ex.Attach()
         if not self.is_attached():
