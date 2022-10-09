@@ -12,6 +12,11 @@ def _gen(f=input, *args, **kwargs):
         yield v
 
 
+# Shared resource pool to prevent file collisions.
+INPUT_GEN = _gen(input, "\033[93m")
+PRINT_THREADS = {}
+
+
 # Converts constructs of "[[%s]]" or "([%s])" into an rsexec command.
 def _parse_encap(api: base.api_base, encap, encap_i, level=0):
     if not len(encap):
@@ -142,14 +147,14 @@ def _param_list(
     return params
 
 
-def parse(api: base.api_base, input_gen=_gen(input), level=0):
+def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
     def func_head(arg_u):
         arg_t = f"local A={{{arg_u}}}"
         arg_n = f"local {','.join(f'a{n}' for n in range(1,10))}={arg_u}"
         return f"{arg_t}\n{arg_n}"
 
     def output_call(s):
-        return f"rsexec('save',{repr(api.OUTPUT_PATH_LUA)},{s},true)"
+        return f"_E('save',{repr(api.OUTPUT_PATH_LUA)},{s},true)"
 
     line = next(input_gen).lstrip()
     if len(line) == 0:
@@ -174,10 +179,10 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
         return f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
 
     # Treats each parameter as its own statement, outputs each to the console.
-    elif head_l in ["o", "p", "output"]:
-        o_nil = f"t=_G.EXEC_OUTPUT or t"
+    elif head_l in ["o", "output"]:
+        o_nil = f"t=_E.OUTPUT or t"
         o_loop = f"for _,v in next,t do\n{output_call('v')}\nend"
-        o_reset = f"_G.EXEC_OUTPUT=nil"
+        o_reset = f"_E.OUTPUT=nil"
         o_call = "\n".join(
             f"local t={{{s}}}\n{o_nil}\n{o_loop}\n{o_reset}"
             for s in _param_list(api, body, level=level)
@@ -235,18 +240,14 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
     # Prints the returned output string of a command if we're on a top-level parse.
     join = "".join(f", {s}" for s in _param_list(api, body, level=level))
     if level == 0:
-        o_loop = f"if _G.EXEC_OUTPUT then\nfor _,v in next,_G.EXEC_OUTPUT do\n{output_call('v')}\nend\nend"
-        return f'rsexec("{head}"{join})\n{o_loop}'
-    return f'rsexec("{head}"{join})'
+        o_loop = f"if _E.OUTPUT then\nfor _,v in next,_E.OUTPUT do\n{output_call('v')}\nend\nend"
+        return f'_E("{head}"{join})\n{o_loop}'
+    return f'_E("{head}"{join})'
 
 
 def parse_str(api: base.api_base, s, level=0):
     return parse(api, (_ for _ in [s]), level=level)
 
-
-# Shared resource pool to prevent file collisions.
-INPUT_GEN = _gen(input)
-PRINT_THREADS = {}
 
 # https://github.com/dabeaz/generators/blob/master/examples/follow.py
 def follow(fn):
@@ -256,7 +257,7 @@ def follow(fn):
             if not line:
                 time.sleep(0)
                 continue
-            print(f"\033[93m{line}\033[00m")
+            print(f"\033[00m{line}\033[93m")
 
 
 def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
@@ -266,7 +267,12 @@ def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
         PRINT_THREADS[path] = th
         th.daemon = True
         th.start()
-    while True:
-        script_body = parse(api, input_gen)
-        if script_body:
-            api.exec(script_body)
+    try:
+        while True:
+            script_body = parse(api, input_gen)
+            if script_body:
+                api.exec(script_body)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("\033[00m", end=None)

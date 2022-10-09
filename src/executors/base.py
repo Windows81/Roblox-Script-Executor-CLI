@@ -26,7 +26,7 @@ class api_base:
     def __init__(self):
         with open(self.OUTPUT_PATH_PY, "w") as _:
             pass
-        # self.exec(f"_G.EXEC_OUT_PATH={repr(self.OUTPUT_PATH_LUA)}")
+        # self.exec(f"_E.OUT_PATH={repr(self.OUTPUT_PATH_LUA)}")
 
     def exec(self, script: str):
         raise NotImplementedError()

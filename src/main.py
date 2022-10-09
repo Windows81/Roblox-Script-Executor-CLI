@@ -64,7 +64,5 @@ if __name__ == "__main__":
         api = api_class()
         print("Executor has been successfully injected.")
         process(api)
-    except KeyboardInterrupt:
-        exit(0)
     except ConnectionError as e:
         print(e)
