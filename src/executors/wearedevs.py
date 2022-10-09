@@ -11,6 +11,9 @@ def patch_prompt():
     return True
 
 
+clr.AddReference("System.IO.Pipes")
+import System.IO.Pipes
+
 clr.AddReference("System.Net")
 import System.Net
 
@@ -23,12 +26,12 @@ import WeAreDevs_API
 
 class api_wrd_dll(base.api_base):
     def __init__(self):
-        super().__init__()
         self.ex = WeAreDevs_API.ExploitAPI()
         if not self.ex.LaunchExploit():
             raise SystemError()
         while not self.is_attached():
             input("Hit enter when injection is done!")
+        super().__init__()
 
     def exec(self, script: str):
         if not self.is_attached():
@@ -43,14 +46,12 @@ class api_wrd_dll(base.api_base):
 class api_wrd_inj(base.api_inj, base.api_upd):
     FILE_PATH = "exploit-main.dll"
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
+    PIPE_NAME = "WeAreDevsPublicAPI_Lua"
 
     def __init__(self):
         raise NotImplementedError(
             "32-bit DLL doesn't work with 64-bit RobloxPlayerBeta."
         )
-
-    def exec(self, script: str):
-        self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
 
     @staticmethod
     def update():
@@ -69,16 +70,21 @@ class api_wrd_inj(base.api_inj, base.api_upd):
 
 class api_wrd_exe(base.api_inj, base.api_upd):
     FILE_PATH = "finj.exe"
+    PIPE_NAME = "WeAreDevsPublicAPI_Lua"
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PROCESS: subprocess.Popen
 
     def __init__(self):
-        super().__init__()
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
+        pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
+        pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
+        pipe.Connect(-1)
+        pipe.Dispose()
+        super().__init__()
         return
-        # let's skip the polling process because WRD doesn't work when EXE is first used to inject.
+        # Let's skip the polling process because WRD doesn't work when EXE is first used to inject.
         while self.PROCESS.poll() == None:
             l = self.PROCESS.stdout.readline()
             if len(l) == 0:
@@ -89,9 +95,6 @@ class api_wrd_exe(base.api_inj, base.api_upd):
                 raise ConnectionError("Fatal: unsupported Roblox version!")
             if b"Injected" in l:
                 break
-
-    def exec(self, script: str):
-        self._write_pipe(script, "WeAreDevsPublicAPI_Lua")
 
     @staticmethod
     def update():

@@ -55,7 +55,7 @@ def _param_single(api: base.api_base, body: str, level=0) -> list[str]:
         if len(encap_l) and ch == encap_l[-1][1]:
             last_i, _ = encap_l.pop()
             encap = param_buf[last_i:]
-            result = _parse_encap(api, encap, last_i, level)
+            result = _parse_encap(api, encap, last_i, level=level)
             param_buf = param_buf[0:last_i] + result
             i += len(result) - len(encap)
             continue
@@ -108,7 +108,7 @@ def _param_list(
             param_buf += ch
             last_i, _ = encap_l.pop()
             encap = param_buf[last_i:]
-            result = _parse_encap(api, encap, last_i, level)
+            result = _parse_encap(api, encap, last_i, level=level)
             param_buf = param_buf[0:last_i] + result
             i += len(result) - len(encap)
             continue
@@ -160,25 +160,27 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
     # One-line snippet.
     if head_l in ["s", "snip", "snippet"]:
         arg_h = func_head("...")
-        return _param_single(api, body, level)
+        return _param_single(api, body, level=level)
 
     if head_l in ["f", "function"]:
         arg_h = func_head("...")
-        f_body = _param_single(api, body, level)
+        f_body = _param_single(api, body, level=level)
         return f"(function(...)\n{arg_h}\n{f_body}\nend)"
 
+    # Single-statement function; 'return' is prepended.
     elif head_l in ["l", "lambda"]:
         arg_h = func_head("...")
-        f_body = _param_single(api, body, level)
+        f_body = _param_single(api, body, level=level)
         return f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
 
+    # Treats each parameter as its own statement, outputs each to the console.
     elif head_l in ["o", "p", "output"]:
         o_nil = f"t=_G.EXEC_OUTPUT or t"
         o_loop = f"for _,v in next,t do\n{output_call('v')}\nend"
         o_reset = f"_G.EXEC_OUTPUT=nil"
         o_call = "\n".join(
             f"local t={{{s}}}\n{o_nil}\n{o_loop}\n{o_reset}"
-            for s in _param_list(api, body, level)
+            for s in _param_list(api, body, level=level)
         )
         return f"(function(...)\n{o_call}\nend)()"
 
@@ -190,19 +192,21 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
             lines.append(s_line)
             if len(s_line.strip()) == 0:
                 break
-        return _param_single(api, "\n".join(lines), level)
+        return _param_single(api, "\n".join(lines), level=level)
 
+    # Lists Lua files in the workspace folder.
     elif head_l in ["ls", "list"]:
         for p in os.listdir("workspace"):
             if p.lower().endswith("lua"):
                 print(f"- {p}")
 
+    # Clears the console.
     elif head_l in ["cl", "cls", "clr"]:
         print("\033c", end="")
 
     elif head_l in ["r", "repeat"]:
-        [var, rep_cmd, *_] = _param_list(api, body, level, max_split=1) + 2 * [""]
-        append_block = f"T[I]={parse_str(api, rep_cmd, level)}"
+        [var, rep_cmd, *_] = _param_list(api, body, level=level, max_split=1) + 2 * [""]
+        append_block = f"T[I]={parse_str(api,rep_cmd, level=level)}"
         table_block = f"for I,V in next,({var})do\n{append_block}\nend"
         incr_block = f"for I=1,({var})do\n{append_block}\nend"
         return (
@@ -213,11 +217,14 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
         )
 
     elif head_l in ["b", "batch"]:
-        [var, script_body, *_] = _param_list(api, body, level, max_split=1) + 2 * [""]
+        [var, script_body, *_] = _param_list(
+            api, body, level=level, max_split=1
+        ) + 2 * [""]
         return f"(function()\nfor I=1,({var})do\n{script_body}\nend\nend)"
 
+    # Loads Lua(u) code from a URL.
     elif head_l in ["ls", "loadstring"]:
-        [url, *args] = _param_list(api, body, level)
+        [url, *args] = _param_list(api, body, level=level)
         arg_h = func_head(", ".join(args))
         script = requests.get(url)
         return f"(function()\n{arg_h}\n{script}\nend)()"
@@ -225,15 +232,16 @@ def parse(api: base.api_base, input_gen=_gen(input), level=0):
     elif head_l == ["e", "exit"]:
         exit()
 
-    join = "".join(f", {s}" for s in _param_list(api, body, level))
+    # Prints the returned output string of a command if we're on a top-level parse.
+    join = "".join(f", {s}" for s in _param_list(api, body, level=level))
     if level == 0:
         o_loop = f"if _G.EXEC_OUTPUT then\nfor _,v in next,_G.EXEC_OUTPUT do\n{output_call('v')}\nend\nend"
         return f'rsexec("{head}"{join})\n{o_loop}'
     return f'rsexec("{head}"{join})'
 
 
-def parse_str(api, s, level=0):
-    return parse(api, (_ for _ in [s]), level)
+def parse_str(api: base.api_base, s, level=0):
+    return parse(api, (_ for _ in [s]), level=level)
 
 
 # Shared resource pool to prevent file collisions.
@@ -244,11 +252,11 @@ PRINT_THREADS = {}
 def follow(fn):
     with open(fn, "r", encoding="utf-8") as o:
         while True:
-            line: str = o.read()
+            line: str = o.read().rstrip("\r\n")
             if not line:
                 time.sleep(0)
                 continue
-            print(line.rstrip("\r\n"))
+            print(f"\033[93m{line}\033[00m")
 
 
 def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):

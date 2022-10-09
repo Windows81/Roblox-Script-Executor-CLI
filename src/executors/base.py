@@ -1,3 +1,4 @@
+from ast import Str
 import os
 import clr
 import ctypes
@@ -25,6 +26,7 @@ class api_base:
     def __init__(self):
         with open(self.OUTPUT_PATH_PY, "w") as _:
             pass
+        # self.exec(f"_G.EXEC_OUT_PATH={repr(self.OUTPUT_PATH_LUA)}")
 
     def exec(self, script: str):
         raise NotImplementedError()
@@ -34,12 +36,14 @@ class api_base:
 
 
 class api_inj(api_base):
+    PIPE_NAME: str
+
     def __init__(self):
         super().__init__()
 
-    def _write_pipe(self, body: str, pipe_name: str):
+    def _write_pipe(self, body: Str):
         try:
-            pipe_args = [".", pipe_name, System.IO.Pipes.PipeDirection.Out]
+            pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
             pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
             pipe.Connect(666)
 
@@ -50,6 +54,9 @@ class api_inj(api_base):
             pipe.Dispose()
         except System.TimeoutException:
             raise ConnectionError("Fatal: unable to connect to pipe.")
+
+    def exec(self, script: str):
+        self._write_pipe(script)
 
     # https://github.com/penghwee-sng/penetration-testing-snippets/blob/2d3ed6ee547657c3dc36951bf186dea9a3950af7/dll/dll_injector.py
     def _inject(self, path: str) -> None:
