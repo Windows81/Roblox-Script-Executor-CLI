@@ -78,10 +78,6 @@ class api_wrd_exe(base.api_inj, base.api_upd):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
-        pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
-        pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
-        pipe.Connect(-1)
-        pipe.Dispose()
         super().__init__()
         return
         # Let's skip the polling process because WRD doesn't work when EXE is first used to inject.

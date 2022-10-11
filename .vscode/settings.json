@@ -1,10 +1,4 @@
 {
-	"robloxLsp.diagnostics.globals": [
-		"rsexec",
-		"loadfile",
-		"makefolder",
-		"writefile"
-	],
 	"files.associations": {
 		"utils.h": "c",
 		"inject.h": "c"

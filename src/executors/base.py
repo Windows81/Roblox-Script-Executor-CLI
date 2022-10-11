@@ -20,13 +20,19 @@ import System.Net
 
 
 class api_base:
-    OUTPUT_PATH_LUA: str = f"./_output.dat"
-    OUTPUT_PATH_PY: str = f"./workspace/{OUTPUT_PATH_LUA}"
+    OUTPUT_DUMP: str = "_output.dat"
+    WORKSPACE_DIR: str = "workspace"
 
     def __init__(self):
-        with open(self.OUTPUT_PATH_PY, "w") as _:
+        dump = os.path.join(self.WORKSPACE_DIR, self.OUTPUT_DUMP)
+        olua = os.path.join(self.WORKSPACE_DIR, "output.lua")
+        with open(dump, "w") as _:
             pass
-        # self.exec(f"_E.OUT_PATH={repr(self.OUTPUT_PATH_LUA)}")
+        with open(olua, "w") as f:
+            f.write(f"_E.RETURN={self.output_call('_E.ARGS[1]')}")
+
+    def output_call(self, s, suffix="nil"):
+        return f"_E('save',{repr(self.OUTPUT_DUMP)},{s},{suffix},true)"
 
     def exec(self, script: str):
         raise NotImplementedError()
@@ -39,6 +45,10 @@ class api_inj(api_base):
     PIPE_NAME: str
 
     def __init__(self):
+        pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
+        pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
+        pipe.Connect(-1)
+        pipe.Dispose()
         super().__init__()
 
     def _write_pipe(self, body: Str):
