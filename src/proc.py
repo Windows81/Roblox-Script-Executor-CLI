@@ -356,8 +356,8 @@ def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
                 err_s = api.output_call(f'"\x1b[91m{msg_e}\x1b[00m\\0"')
                 pcall = f"local s,e=pcall(function()\n{script_body};end)"
                 for l in [
-                    f"_E.RUN=true\n{pcall}\n{err_b}\nwait(1/16)\n{out_n}\n_E.RUN=false",
-                    f"wait(1/32)\nif not _E.RUN then\n{err_s}\nend",
+                    f"_E.RUN=true\n{pcall}\n{err_b}\ntask.wait(1/8)\n{out_n}\n_E.RUN=false",
+                    f"task.wait(1/64)\nif not _E.RUN then\n{err_s}\nend",
                 ]:
                     api.exec(l)
                 print(f"\x1b[00m", end="")
