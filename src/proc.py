@@ -13,7 +13,7 @@ def _gen(f=input, *args, **kwargs):
 
 
 # Shared resource pool to prevent file collisions.
-INPUT_GEN = _gen(input, "\x1b[00m> \033[93m")
+INPUT_GEN = _gen(input, "\033[93m")
 FILE_THREADS: dict[str, BufferedReader] = {}
 
 
@@ -229,7 +229,7 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0) -> str | None:
             arg_h = func_head("...")
             return _param_single(api, body, level=level)
 
-        if head_l in ["f", "function"]:
+        if head_l in ["f", "func", "function"]:
             arg_h = func_head("...")
             f_body = _param_single(api, body, level=level)
             return f"(function(...)\n{arg_h}\n{f_body}\nend)"
@@ -332,7 +332,7 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0) -> str | None:
         join = "".join(f", {s}" for s in pl)
         if level == 0:
             o_call = api.output_call("v")
-            o_loop = f"if t then\nfor _,v in next,t do\nprint(v)\n{o_call}\nend\nend"
+            o_loop = f"if t then\nfor _,v in next,t do\n{o_call}\nend\nend"
             return f'local r={{_E("{head}"{join})}}\nlocal t=_E.OUTPUT or r\n{o_loop}'
         return f'_E("{head}"{join})'
 
@@ -346,6 +346,7 @@ def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
     try:
         with open(path, "rb") as o:
             while True:
+                print(f"\x1b[00m> ", end="")
                 script_body = parse(api, input_gen)
                 if not script_body:
                     break

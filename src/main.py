@@ -51,18 +51,20 @@ def get_parse():
 
 
 if __name__ == "__main__":
-    parser = get_parse()
-    args = parser.parse_args().__dict__
-    api_class = EXEC_TYPES[args["executor"]]
-    if args["update"]:
-        if issubclass(api_class, api_upd):
-            api_class.update()
-        else:
-            print("Execution method must be updated manually.")
-
     try:
+        parser = get_parse()
+        args = parser.parse_args().__dict__
+        api_class = EXEC_TYPES[args["executor"]]
+        if args["update"]:
+            if issubclass(api_class, api_upd):
+                api_class.update()
+            else:
+                print("Execution method must be updated manually.")
+
         api = api_class()
         print("Executor has been successfully injected.")
         process(api)
+    except KeyboardInterrupt:
+        pass
     except ConnectionError as e:
         print(e)
