@@ -10,6 +10,8 @@ python scrc/main.py
 
 ## Examples of use
 
+The commands shown do not reflect whatever is available in the Lua `getrenv()` or `getfenv()` environments.
+
 ### Basic Syntax
 
 ```
@@ -28,6 +30,22 @@ game.Workspace
 ```
 
 The prefix `output` can be substituted for `o`.
+
+### Loadstrings
+
+Like any good script execution platform, Rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL.
+
+```
+> ls 'https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'
+```
+
+This works more-or-less the same as:
+
+```
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+```
+
+The prefix `ls` can be substituted for `loadstring`.
 
 ### Single-Line Snippets
 
@@ -84,11 +102,14 @@ Then, from `/workspace/del.lua`, deletes everything in the list.
 
 ### Output Formatting
 
-Some methods print a custom output string when called top-level, via an optional `_E.OUTPUT` table in the callee script. `_E.OUTPUT` should contain only a single string.
+To produce human-likeable output, some workspace scripts print a custom string when called at the top level. These callee scripts initialise an optional `_E.OUTPUT` table near the end of the body.
+
+Many of those custom outputs use ANSI colour codes to improve readability.
+
+I recommend that `_E.OUTPUT` should contain only a single string.
 
 ```
 > tree game.ReplicatedStorage
-
 [02] game.ReplicatedStorage.EmoteBar {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.clientConfig {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.emotes {ModuleScript}
@@ -105,7 +126,7 @@ Some methods print a custom output string when called top-level, via an optional
 ...
 ```
 
-However, this behaviour is not applied when done from a nested call. The following snippet will return a Lua table:
+However, this behaviour is not applied when done from a nested call. The following snippet will print a usable Lua table:
 
 ```
 > o [[tree game.ReplicatedStorage]]
@@ -129,7 +150,7 @@ However, this behaviour is not applied when done from a nested call. The followi
 ### Functions
 
 ```
-> tree game.workspace [[function return a1.Parent.Name=='Head']]
+> tree game.workspace [[function return a1.Parent.Name == 'Head']]
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.Head {WrapTarget}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.NeckRigAttachment {Attachment}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.FaceFrontAttachment {Attachment}
@@ -145,13 +166,13 @@ The result of `/workspace/tree.lua` here is every object in the Workspace whose 
 The string:
 
 ```
-[[function return a1.Parent.Name=='Head']]
+[[function return a1.Parent.Name == 'Head']]
 ```
 
 ...is substituted with:
 
 ```
-function(a1,a2,...) return a1.Parent.Name=='Head' end
+(function(a1, a2, ...) return a1.Parent.Name == 'Head' end)
 ```
 
 The prefix `function` can be substituted for `func` or `f`.
@@ -159,23 +180,23 @@ The prefix `function` can be substituted for `func` or `f`.
 ### Lambdas
 
 ```
-> tree game.workspace [[lambda a1.Parent.Name=='Head']]
+> tree game.workspace [[lambda a1.Parent.Name == 'Head']]
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.Head {WrapTarget}
 ...
 ```
 
-Same as the `f` prefix, but adds the `return` keyword prior to the function body.
+Lambdas work similarly to the `f` prefix, but adds the `return` keyword prior to the function body.
 
-Similarly to `f`, the string:
+The string:
 
 ```
-[[lambda a1.Parent.Name=='Head']]
+[[lambda a1.Parent.Name == 'Head']]
 ```
 
 ...is replaced with:
 
 ```
-function(a1,a2,...) return a1.Parent.Name=='Head' end
+(function(a1, a2, ...) return a1.Parent.Name == 'Head' end)
 ```
 
 The prefix `lambda` can be substituted for `l`.
