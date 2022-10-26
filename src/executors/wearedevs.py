@@ -25,13 +25,13 @@ import WeAreDevs_API
 
 
 class api_wrd_dll(base.api_base):
-    def __init__(self):
+    def setup(self):
         self.ex = WeAreDevs_API.ExploitAPI()
         if not self.ex.LaunchExploit():
             raise SystemError()
         while not self.is_attached():
             input("Hit enter when injection is done!")
-        super().__init__()
+        super().setup()
 
     def exec(self, script: str):
         if not self.is_attached():
@@ -48,7 +48,7 @@ class api_wrd_inj(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PIPE_NAME = "WeAreDevsPublicAPI_Lua"
 
-    def __init__(self):
+    def setup(self):
         raise NotImplementedError(
             "32-bit DLL doesn't work with 64-bit RobloxPlayerBeta."
         )
@@ -74,11 +74,11 @@ class api_wrd_exe(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PROCESS: subprocess.Popen
 
-    def __init__(self):
+    def setup(self):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
-        super().__init__()
+        super().setup()
         return
         # Let's skip the polling process because WRD doesn't work when EXE is first used to inject.
         while self.PROCESS.poll() == None:

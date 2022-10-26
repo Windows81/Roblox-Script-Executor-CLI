@@ -7,12 +7,12 @@ import OxygenU_API
 
 
 class api_oxy(base.api_base):
-    def __init__(self):
+    def setup(self):
         self.ex = OxygenU_API.Client()
         self.ex.Attach()
         if not self.is_attached():
             raise RuntimeError("Unable to inject OxygenU API.")
-        super().__init__()
+        super().setup()
 
     def exec(self, script: str):
         if not self.is_attached():

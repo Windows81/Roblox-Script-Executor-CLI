@@ -33,10 +33,10 @@ The prefix `output` can be substituted for `o`.
 
 ### Loadstrings
 
-Like any good script execution platform, Rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL.
+Like any good script execution platform, Rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL. Note that the URL is _not_ wrapped in quotes, as it is not parsed from a Lua object.
 
 ```
-> ls 'https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'
+> ls https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source
 ```
 
 This works more-or-less the same as:

@@ -22,8 +22,13 @@ import System.Net
 class api_base:
     OUTPUT_DUMP: str = "_output.dat"
     WORKSPACE_DIR: str = "workspace"
+    first_time: bool = True
 
     def __init__(self):
+        self.setup()
+        self.first_time = False
+
+    def setup(self):
         dump = os.path.join(self.WORKSPACE_DIR, self.OUTPUT_DUMP)
         olua = os.path.join(self.WORKSPACE_DIR, "output.lua")
         with open(dump, "w") as _:
@@ -34,22 +39,30 @@ class api_base:
     def output_call(self, s, suffix="nil"):
         return f"_E('save',{repr(self.OUTPUT_DUMP)},{s},{suffix},true)"
 
-    def exec(self, script: str):
+    def exec(self, _: str):
         raise NotImplementedError()
 
     def is_attached(self):
         raise NotImplementedError()
 
+    def restart(self):
+        self.__init__()
+
 
 class api_inj(api_base):
     PIPE_NAME: str
 
-    def __init__(self):
+    def setup(self):
         pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
-        pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
-        pipe.Connect(-1)
-        pipe.Dispose()
-        super().__init__()
+        while True:
+            try:
+                pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
+                pipe.Connect(100)
+                pipe.Dispose()
+                break
+            except System.TimeoutException:
+                continue
+        super().setup()
 
     def _write_pipe(self, body: Str):
         try:
@@ -118,8 +131,8 @@ class api_inj(api_base):
 class api_upd(api_base):
     FILE_PATH: str
 
-    def __init__(self):
-        super().__init__()
+    def setup(self):
+        super().setup()
 
     def _load(self):
         if os.path.isfile(self.FILE_PATH):
