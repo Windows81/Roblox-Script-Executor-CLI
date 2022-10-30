@@ -33,7 +33,7 @@ The prefix `output` can be substituted for `o`.
 
 ### Loadstrings
 
-Like any good script execution platform, Rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL. Note that the URL is _not_ wrapped in quotes, as it is not parsed from a Lua object.
+Like any good script execution platform, rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL. Note that the URL is _not_ wrapped in quotes, as it is not parsed from a Lua object.
 
 ```
 > ls https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source
@@ -74,13 +74,13 @@ The prefix `multiline` can be substituted for `ml` or `m`.
 ### Executing Scripts in `/workspace`
 
 ```
-> chat "I'm exploiting and probably will catch someone's attention!"
+> chat "I'm exploiting and probably will catch someone's attention!" 6
 ```
 
 If `/workspace/chat.lua` exists, it will be executed, with global table `_E.ARGS` initialised as:
 
 ```lua
-{"I'm exploiting and probably will catch someone's attention!"}
+{"I'm exploiting and probably will catch someone's attention!", 6}
 ```
 
 Some scripts return stuff by initialising the `_E.RETURN` global table.
@@ -106,45 +106,49 @@ To produce human-likeable output, some workspace scripts print a custom string w
 
 Many of those custom outputs use ANSI colour codes to improve readability.
 
-I recommend that `_E.OUTPUT` should contain only a single string.
-
 ```
 > tree game.ReplicatedStorage
 [02] game.ReplicatedStorage.EmoteBar {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.clientConfig {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.emotes {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.enums {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.events {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.getEmote {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.lockEmote {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.playEmote {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.serverConfig {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.setEmotes {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.setGuiVisibility {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.types {ModuleScript}
-[03] game.ReplicatedStorage.EmoteBar.unlockEmote {ModuleScript}
 ...
 ```
 
-However, this behaviour is not applied when done from a nested call. The following snippet will print a usable Lua table:
+However, this behaviour is not applied when done from a nested call. The following snippet will print a machine-readble Lua table:
 
 ```
-> o [[tree game.ReplicatedStorage]]
+> output [[tree game.ReplicatedStorage]]
 {
   game.ReplicatedStorage.EmoteBar,
   game.ReplicatedStorage.EmoteBar.clientConfig,
   game.ReplicatedStorage.EmoteBar.emotes,
   game.ReplicatedStorage.EmoteBar.enums,
-  game.ReplicatedStorage.EmoteBar.events,
-  game.ReplicatedStorage.EmoteBar.getEmote,
-  game.ReplicatedStorage.EmoteBar.lockEmote,
-  game.ReplicatedStorage.EmoteBar.playEmote,
-  game.ReplicatedStorage.EmoteBar.serverConfig,
-  game.ReplicatedStorage.EmoteBar.setEmotes,
-  game.ReplicatedStorage.EmoteBar.setGuiVisibility,
-  game.ReplicatedStorage.EmoteBar.types,
-  game.ReplicatedStorage.EmoteBar.unlockEmote,
 ...
+```
+
+### Sharp Corners
+
+It is possible to return multi-value tuples into `_E.OUTPUT` or pass multiple Lua expressions into the `output` command. The generated output from multiple return values is separated by `;`. The `string.gsub()` function in Lua for example always returns a tuple consisting of _(string, number)_:
+
+```
+> output (string.gsub("abb", "b", "c"))
+acc; 2
+```
+
+Unlike Lua's `print()` statement, tuples in rsexec preserved all their elements if followed by another expression.
+
+```
+> output (string.gsub("abb", "b", "c")) (string.gsub("xyz", "x", "0"))
+acc; 2; 0yz; 1
+```
+
+### Remote Spy
+
+Rsexec runs Remote Spy immediately once it is injected. Events sent to the client vía OnClientEvent are also received, unlike other advanced implementations of Remote Spy. There are no GUIs are there to clutter the screen. Remotes do however fill up in `./_rspy.dat` on a per-session basis. Rsexec offers a way to dump Remote Spy logs to the console, as shown below. Executing `dump` starts the file pointer from the end of the previous read, per file name:
+
+```
+> dump rspy
 ```
 
 ### Functions

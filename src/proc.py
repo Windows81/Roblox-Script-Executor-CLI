@@ -13,7 +13,7 @@ class ParseCode(Enum):
     EXIT = 0
     SYNC = 1
     ASYNC = 2
-    PASS = 3
+    RAW = 3
     RESTART = 4
 
 
@@ -234,10 +234,10 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
         print(f"\x1b[00m> ", end="")
     n = next(input_gen, None)
     if not n:
-        return ParseResult("", ParseCode.PASS)
+        return ParseResult("", ParseCode.RAW)
     line = n.lstrip()
     if len(line) == 0:
-        return ParseResult("", ParseCode.PASS)
+        return ParseResult("", ParseCode.RAW)
 
     head, body = (*line.split(" ", 1), "")[0:2]
     head_l = head.lower()
@@ -252,24 +252,24 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
         arg_h = func_head("...")
         return ParseResult(_param_single(api, body, level=level), ParseCode.SYNC)
 
-    if head_l in ["f", "func", "function"]:
+    elif head_l in ["f", "func", "function"]:
         arg_h = func_head("...")
         f_body = _param_single(api, body, level=level)
         f_str = f"(function(...)\n{arg_h}\n{f_body}\nend)"
-        return ParseResult(f_str, ParseCode.PASS)
+        return ParseResult(f_str, ParseCode.RAW)
 
     # Single-statement function; 'return' is prepended.
-    if head_l in ["l", "lambda"]:
+    elif head_l in ["l", "lambda"]:
         arg_h = func_head("...")
         f_body = _param_single(api, body, level=level)
         f_str = f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
-        return ParseResult(f_str, ParseCode.PASS)
+        return ParseResult(f_str, ParseCode.RAW)
 
     # Treats each parameter as its own statement, outputs each to the console.
-    if head_l in ["o", "output"]:
+    elif head_l in ["o", "output"]:
         param_o = []
-        for s in _param_list(api, body, level=level):
-            param_o.append(f"{{{s}}},")
+        for alias in _param_list(api, body, level=level):
+            param_o.append(f"{{{alias}}},")
             o_reset = f"_E.OUTPUT=nil"
         o_body = "\n".join(param_o)
         if level:
@@ -282,7 +282,7 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
         )
 
     # Multi-line script.
-    if head_l in ["ml", "m", "multiline"]:
+    elif head_l in ["ml", "m", "multiline"]:
         lines = [body]
         while True:
             s_line = next(input_gen, "")
@@ -294,18 +294,18 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
         )
 
     # Lists Lua files in the workspace folder.
-    if head_l in ["list"]:
+    elif head_l in ["list"]:
         for pos in os.listdir("workspace"):
             if pos.lower().endswith("lua"):
                 print(f"- {pos}")
-        return ParseResult("", ParseCode.PASS)
+        return ParseResult("", ParseCode.RAW)
 
     # Clears the console.
-    if head_l in ["cl", "cls", "clr"]:
+    elif head_l in ["cl", "cls", "clr"]:
         print("\033c", end="")
-        return ParseResult("", ParseCode.PASS)
+        return ParseResult("", ParseCode.RAW)
 
-    if head_l in ["repeat"]:
+    elif head_l in ["repeat"]:
         [var, cmd] = _param_list(api, body, level=level, max_split=1, min_params=2)
         append_block = f"T[I]={parse_str(api,cmd, level=level)}"
         table_block = f"for I,V in next,({var})do\n{append_block}\nend"
@@ -318,14 +318,14 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
             ParseCode.SYNC,
         )
 
-    if head_l in ["b", "batch"]:
+    elif head_l in ["b", "batch"]:
         [var, sb] = _param_list(api, body, level=level, max_split=1, min_params=2)
         return ParseResult(
             f"(function()\nfor I=1,({var})do\n{sb}\nend\nend)", ParseCode.SYNC
         )
 
     # Loads Lua(u) code from a URL.
-    if head_l in ["ls", "loadstring"]:
+    elif head_l in ["ls", "loadstring"]:
         [url, *args] = _param_list(api, body, level=level)
         arg_h = func_head(", ".join(args))
         try:
@@ -335,9 +335,39 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
             )
         except requests.exceptions.RequestException as e:
             print(f"\x1b[91m{e.strerror}")
-            return ParseResult("", ParseCode.PASS)
+            return ParseResult("", ParseCode.RAW)
 
-    if head_l in ["dump"] and not level:
+    elif head_l in ["man"]:
+        alias = _param_single(api, body, level=level)
+        if level:
+            return ParseResult(f'_E("man",{repr(alias)})', ParseCode.SYNC)
+
+        o_call = api.output_call(
+            f"'\\n\x1b[93m'..gsp:upper()"
+            + "..':\\n\x1b[94m'..man"
+            + ":gsub('\\r\\n','\\n')"
+            + ":gsub('%[(%d+)%] %- ([^\\n]+)\\n([^%[]+)', '\x1b[91m%1) \x1b[92m%2\x1b[90m\\n%3')"
+            + ":gsub('\\n\\t','\\n    ')"
+            + f'.."\\n\x1b[00m"'
+        )
+        gsp_e = api.output_call(f'"\x1b[91mAlias does not exist.\x1b[00m\\0"')
+        gsp_s = (
+            f"local gsp=_E.GSP({repr(alias)})\n"
+            + f"if not gsp then\n{gsp_e}\nreturn\nend"
+        )
+        man_e = api.output_call(
+            f'"\x1b[91mAlias does not have help metatext.\x1b[00m\\0"'
+        )
+        man_s = (
+            f"local man=_E('man',{repr(alias)})\n"
+            + f"if not man then\n{man_e}\nreturn\nend"
+        )
+        return ParseResult(
+            f"{gsp_s}\n{man_s}\n{o_call}",
+            ParseCode.SYNC,
+        )
+
+    elif head_l in ["dump"] and not level:
         try:
             [name, sub] = _param_list(
                 api, body, level=level, max_split=1, min_params=2, default=""
@@ -353,27 +383,27 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
                 else:
                     FILE_THREADS[name] = open(path, "rb")
                     print(f'Opened "{path}".')
-                return ParseResult("", ParseCode.PASS)
+                return ParseResult("", ParseCode.RAW)
 
             elif not opened:
                 FILE_THREADS[name] = open(path, "rb")
             _print_to_end(FILE_THREADS[name])
         except FileNotFoundError:
             print(f'\x1b[91mUnable to find "{path}".')
-        return ParseResult("", ParseCode.PASS)
+        return ParseResult("", ParseCode.RAW)
 
-    if head_l in ["r", "reset", "restart"]:
+    elif head_l in ["r", "reset", "restart"]:
         return ParseResult(None, ParseCode.RESTART)
 
-    if head_l == ["e", "exit"]:
+    elif head_l == ["e", "exit"]:
         return ParseResult(None, ParseCode.EXIT)
 
-    # Prints the returned output string of a command if we're on a top-level parse.
     pl = _param_list(api, body, level=level)
     join = "".join(f", {s}" for s in pl)
     if level:
         return ParseResult(f'_E("{head}"{join})', ParseCode.SYNC)
 
+    # Prints the returned output string of a command if we're on a top-level parse.
     return ParseResult(
         f'local r={{_E("{head}"{join})}}\nlocal t=_E.OUTPUT or r\n{o_loop}',
         ParseCode.SYNC,
@@ -385,7 +415,6 @@ def parse_str(api: base.api_base, s, level=0):
 
 
 def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
-    path = os.path.join(api._workspace_dir, api._output_path)
     try:
         while True:
             result = parse(api, input_gen)
@@ -404,8 +433,10 @@ def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
                 ]
             elif result.code == ParseCode.ASYNC:
                 script_lines = [f"{pcall}\n{err_b}\n{out_n}"]
-            elif result.code == ParseCode.PASS:
-                continue
+            elif result.code == ParseCode.RAW:
+                if not result:
+                    continue
+                script_lines = [result]
             elif result.code == ParseCode.EXIT:
                 break
             elif result.code == ParseCode.RESTART:
