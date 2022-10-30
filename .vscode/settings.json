@@ -39,5 +39,8 @@
 		"_E",
 		"_E.RETURN",
 		"_E.ARGS"
+	],
+	"robloxLsp.diagnostics.disable": [
+		"deprecated"
 	]
 }

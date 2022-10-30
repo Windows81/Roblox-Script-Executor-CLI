@@ -343,7 +343,7 @@ def parse(api: base.api_base, input_gen=INPUT_GEN, level=0):
                 api, body, level=level, max_split=1, min_params=2, default=""
             )
             print("\x1b[00m", end="")
-            path = os.path.join(api.WORKSPACE_DIR, f"_{name}.dat")
+            path = os.path.join(api._workspace_dir, f"_{name}.dat")
             opened = name in FILE_THREADS
             if sub.lower() == "reset":
                 if opened:
@@ -385,46 +385,45 @@ def parse_str(api: base.api_base, s, level=0):
 
 
 def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
-    path = os.path.join(api.WORKSPACE_DIR, api.OUTPUT_DUMP)
+    path = os.path.join(api._workspace_dir, api._output_path)
     try:
-        with open(path, "rb") as o:
-            while True:
-                result = parse(api, input_gen)
-                out_n = api.output_call('"\\0"')
-                out_e = api.output_call('"\x1b[91m"..e.."\x1b[00m"')
-                err_b = f"if not s then\n{out_e}\nend"
-                msg_e = "Syntax error; perhaps check the devconsole."
-                err_s = api.output_call(f'"\x1b[91m{msg_e}\x1b[00m\\0"')
-                pcall = f"local s,e=pcall(function()\n{result.string};end)"
-                var = f"_E.RUN{str(time.time()).replace('.','')}"
+        while True:
+            result = parse(api, input_gen)
+            out_n = api.output_call('"\\0"')
+            out_e = api.output_call('"\x1b[91m"..e.."\x1b[00m"')
+            err_b = f"if not s then\n{out_e}\nend"
+            msg_e = "Syntax error; perhaps check the devconsole."
+            err_s = api.output_call(f'"\x1b[91m{msg_e}\x1b[00m\\0"')
+            pcall = f"local s,e=pcall(function()\n{result.string};end)"
+            var = f"_E.RUN{str(time.time()).replace('.','')}"
 
-                if result.code == ParseCode.SYNC:
-                    script_lines = [
-                        f"local c=5\nrepeat c=c-1\ntask.wait(0)\nif {var} then\nreturn\nend\nuntil c==0\n{err_s}",
-                        f"{var}=true\n{pcall}\n{err_b}\ntask.wait(0.2)\n{out_n}\n{var}=false",
-                    ]
-                elif result.code == ParseCode.ASYNC:
-                    script_lines = [f"{pcall}\n{err_b}\n{out_n}"]
-                elif result.code == ParseCode.PASS:
-                    continue
-                elif result.code == ParseCode.EXIT:
-                    break
-                elif result.code == ParseCode.RESTART:
-                    api.restart()
-                    continue
+            if result.code == ParseCode.SYNC:
+                script_lines = [
+                    f"local c=7\nrepeat c=c-1\ntask.wait(0)\nif {var} then\nreturn\nend\nuntil c==0\n{err_s}",
+                    f"{var}=true\n{pcall}\n{err_b}\ntask.wait(0.2)\n{out_n}\n{var}=false",
+                ]
+            elif result.code == ParseCode.ASYNC:
+                script_lines = [f"{pcall}\n{err_b}\n{out_n}"]
+            elif result.code == ParseCode.PASS:
+                continue
+            elif result.code == ParseCode.EXIT:
+                break
+            elif result.code == ParseCode.RESTART:
+                api.restart()
+                continue
 
-                for l in script_lines:
-                    api.exec(l)
+            for l in script_lines:
+                api.exec(l)
 
-                print(f"\x1b[00m", end="")
-                try:
-                    anything = _follow_output(o)
-                    print(f"", end="\n" if anything else "")
-                except KeyboardInterrupt:
-                    print(
-                        "\x1b[91mProcess is still running; future output may be garbled.",
-                        end="\n",
-                    )
+            print(f"\x1b[00m", end="")
+            try:
+                anything = api.follow_output()
+                print(f"", end="\n" if anything else "")
+            except KeyboardInterrupt:
+                print(
+                    "\x1b[91mProcess is still running; future output may be garbled.",
+                    end="\n",
+                )
 
     except KeyboardInterrupt:
         pass

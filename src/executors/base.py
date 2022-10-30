@@ -1,6 +1,7 @@
-from ast import Str
+import io
 import os
 import clr
+import time
 import ctypes
 import psutil
 import win32api
@@ -8,6 +9,7 @@ import win32con
 import win32event
 import win32process
 import ctypes.wintypes
+from typing_extensions import Self
 
 clr.AddReference("System.IO")
 import System.IO
@@ -20,24 +22,40 @@ import System.Net
 
 
 class api_base:
-    OUTPUT_DUMP: str = "_output.dat"
-    WORKSPACE_DIR: str = "workspace"
-    first_time: bool = True
+    _instances: dict[str, Self] = {}
+    _first_time: bool = True
 
-    def __init__(self):
-        self.setup()
-        self.first_time = False
+    OUTPUT_IO: io.TextIOWrapper = None
+    _workspace_dir: str = "workspace"
+    _output_path: str
 
-    def setup(self):
-        dump = os.path.join(self.WORKSPACE_DIR, self.OUTPUT_DUMP)
-        olua = os.path.join(self.WORKSPACE_DIR, "output.lua")
+    # It's messy here because I'm trying to enforce the singleton model.
+    def __new__(cls, output="_output.dat"):
+        if output in api_base._instances:
+            return api_base._instances[output]
+        item = api_base._instances[output] = super().__new__(cls)
+        item._output_path = output
+
+        item.restart()
+        item._first_time = False
+        return item
+
+    def restart(self):
+        # (Re)opens the output stream for console evaluation.
+        dump = os.path.join(self._workspace_dir, self._output_path)
+        if self.OUTPUT_IO:
+            self.OUTPUT_IO.close()
         with open(dump, "w") as _:
             pass
+        self.OUTPUT_IO = open(dump, "rb")
+
+        # Writes code that properly outputs to our console onto "workspace/output.lua".
+        olua = os.path.join(self._workspace_dir, "output.lua")
         with open(olua, "w") as f:
             f.write(f"_E.RETURN={self.output_call('_E.ARGS[1]')}")
 
     def output_call(self, s, suffix="nil"):
-        return f"_E('save',{repr(self.OUTPUT_DUMP)},{s},{suffix},true)"
+        return f"_E('save',{repr(self._output_path)},{s},{suffix},true)"
 
     def exec(self, _: str):
         raise NotImplementedError()
@@ -45,14 +63,43 @@ class api_base:
     def is_attached(self):
         raise NotImplementedError()
 
-    def restart(self):
-        self.__init__()
+    def __del__(self):
+        self.OUTPUT_IO.close()
+
+    def follow_output(self):
+        data = bytes()
+        while True:
+            data = self.OUTPUT_IO.read()
+            if not data:
+                time.sleep(0)
+                continue
+            break
+
+        tries = 1e5
+        processed = False
+        while tries > 0:
+            if data:
+                if data[-1] == 0:
+                    splice = data[:-1]
+                    tries = 1e3
+                else:
+                    splice = data
+                    tries = 2e5
+                if splice:
+                    ps = splice.decode("utf-8")
+                    print(ps, end="")
+                    processed = True
+            else:
+                tries -= 1
+            time.sleep(0)
+            data = self.OUTPUT_IO.read()
+        return processed
 
 
 class api_inj(api_base):
     PIPE_NAME: str
 
-    def setup(self):
+    def restart(self):
         pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
         while True:
             try:
@@ -62,9 +109,9 @@ class api_inj(api_base):
                 break
             except System.TimeoutException:
                 continue
-        super().setup()
+        super().restart()
 
-    def _write_pipe(self, body: Str):
+    def _write_pipe(self, body: str):
         try:
             pipe_args = [".", self.PIPE_NAME, System.IO.Pipes.PipeDirection.Out]
             pipe = System.IO.Pipes.NamedPipeClientStream(*pipe_args)
@@ -131,8 +178,8 @@ class api_inj(api_base):
 class api_upd(api_base):
     FILE_PATH: str
 
-    def setup(self):
-        super().setup()
+    def restart(self):
+        super().restart()
 
     def _load(self):
         if os.path.isfile(self.FILE_PATH):

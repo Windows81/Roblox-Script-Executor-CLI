@@ -25,13 +25,13 @@ import WeAreDevs_API
 
 
 class api_wrd_dll(base.api_base):
-    def setup(self):
+    def restart(self):
         self.ex = WeAreDevs_API.ExploitAPI()
         if not self.ex.LaunchExploit():
             raise SystemError()
         while not self.is_attached():
             input("Hit enter when injection is done!")
-        super().setup()
+        super().restart()
 
     def exec(self, script: str):
         if not self.is_attached():
@@ -48,7 +48,7 @@ class api_wrd_inj(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PIPE_NAME = "WeAreDevsPublicAPI_Lua"
 
-    def setup(self):
+    def restart(self):
         raise NotImplementedError(
             "32-bit DLL doesn't work with 64-bit RobloxPlayerBeta."
         )
@@ -74,23 +74,11 @@ class api_wrd_exe(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PROCESS: subprocess.Popen
 
-    def setup(self):
+    def restart(self):
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
-        super().setup()
-        return
-        # Let's skip the polling process because WRD doesn't work when EXE is first used to inject.
-        while self.PROCESS.poll() == None:
-            l = self.PROCESS.stdout.readline()
-            if len(l) == 0:
-                break
-            # if b"Could not find call!" in l:
-            # raise ConnectionError("Fatal: could not find call!")
-            if b"unsupported" in l:
-                raise ConnectionError("Fatal: unsupported Roblox version!")
-            if b"Injected" in l:
-                break
+        super().restart()
 
     @staticmethod
     def update():
