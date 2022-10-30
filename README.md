@@ -2,10 +2,11 @@
 
 **R**oblox **S**cript **Exec**utor (rsexec) is a command-line interface that primarily uses the WeAreDevs API to run scripts on the Rōblox client. Sister repository to [Personal Roblox Client Scripts](https://github.com/Windows81/Personal-Roblox-Client-Scripts).
 
-To run my program, make sure Python is installed and that you're using Windows.
+To run my program, make sure Python **3.10** is installed and that you're using Windows.
 
 ```console
-python scrc/main.py
+pip install -r requirements.txt
+python src/main.py
 ```
 
 ## Examples of use
@@ -183,9 +184,13 @@ The prefix `function` can be substituted for `func` or `f`.
 
 ### Lambdas
 
+Lambdas are useful for writing dynamic one-liners that take advantage of other features of the rsexec language. I personally use it a lot for the `tree` command.
+
 ```
 > tree game.workspace [[lambda a1.Parent.Name == 'Head']]
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.Head {WrapTarget}
+[06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.NeckRigAttachment {Attachment}
+[06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.FaceFrontAttachment {Attachment}
 ...
 ```
 
