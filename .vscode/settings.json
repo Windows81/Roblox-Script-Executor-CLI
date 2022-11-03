@@ -42,5 +42,6 @@
 	],
 	"robloxLsp.diagnostics.disable": [
 		"deprecated"
-	]
+	],
+	"python.analysis.typeCheckingMode": "basic"
 }

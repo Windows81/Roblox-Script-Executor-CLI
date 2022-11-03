@@ -4,28 +4,33 @@ import requests
 import clr
 
 
-def patch_prompt():
+def patch_prompt() -> bool:
     p = input("The WeAreDevs API is currently patched. Install? (Y/n) ").lower()
     if p == "n":
         return False
     return True
 
 
-clr.AddReference("System.IO.Pipes")
-import System.IO.Pipes
+try:
+    clr.AddReference("System.IO.Pipes")  # type: ignore
+    import System.IO.Pipes  # type: ignore
 
-clr.AddReference("System.Net")
-import System.Net
+    clr.AddReference("System.Net")  # type: ignore
+    import System.Net  # type: ignore
 
-# Quick hack to take care of TLS problems on WeAreDevs_API.dll.
-System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType(16320)
+    clr.AddReference("WeAreDevs_API")  # type: ignore
+    import WeAreDevs_API  # type: ignore
 
-clr.AddReference("WeAreDevs_API")
-import WeAreDevs_API
+    # Quick hack to take care of TLS problems on WeAreDevs_API.dll.
+    spm = System.Net.ServicePointManager
+    spm.SecurityProtocol = System.Net.SecurityProtocolType(16320)
+
+except ImportError:
+    pass
 
 
 class api_wrd_dll(base.api_base):
-    def restart(self):
+    def restart(self) -> None:
         self.ex = WeAreDevs_API.ExploitAPI()
         if not self.ex.LaunchExploit():
             raise SystemError()
@@ -33,12 +38,12 @@ class api_wrd_dll(base.api_base):
             input("Hit enter when injection is done!")
         super().restart()
 
-    def exec(self, script: str):
+    def exec(self, script: str) -> None:
         if not self.is_attached():
             raise RuntimeError("WRD API is not injected.")
         return self.ex.SendLuaScript(script)
 
-    def is_attached(self):
+    def is_attached(self) -> bool:
         return self.ex.isAPIAttached()
 
 
@@ -74,14 +79,14 @@ class api_wrd_exe(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PROCESS: subprocess.Popen
 
-    def restart(self):
+    def restart(self) -> None:
         self.PROCESS = subprocess.Popen(
             [self.FILE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
         super().restart()
 
     @staticmethod
-    def update():
+    def update() -> None:
         data = requests.get(api_wrd_exe.JSON_URL).json()
         if data["exploit-module"]["patched"] and not patch_prompt():
             exit()

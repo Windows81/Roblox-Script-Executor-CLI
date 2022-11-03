@@ -1,5 +1,5 @@
-import subprocess
 import executors.base as base
+import subprocess
 import requests
 
 
@@ -9,16 +9,17 @@ class api_krnl_exe(base.api_inj, base.api_upd):
     DLL_URL = "https://k-storage.com/bootstrapper/files/krnl.dll"
     PIPE_NAME = "krnlpipe"
 
-    def restart(self):
+    def restart(self) -> None:
         self.PROCESS = subprocess.Popen(
             [self.EXE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True
         )
         code = self.PROCESS.wait()
         if code != 0:
-            raise ConnectionError(f"Fatal: ckrnl.exe returned exit code {code}!")
+            raise ConnectionError(
+                f"Fatal: ckrnl.exe returned exit code {code}!")
         super().restart()
 
     @staticmethod
-    def update():
+    def update() -> None:
         with open(api_krnl_exe.DLL_PATH, "wb") as f:
             f.write(requests.get(api_krnl_exe.DLL_URL).content)

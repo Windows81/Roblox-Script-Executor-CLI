@@ -1,3 +1,5 @@
+requests
 pythonnet
-pywin32
+pypiwin32
+psutil
 clr

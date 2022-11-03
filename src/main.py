@@ -1,8 +1,15 @@
-import os, sys
+import argparse
+from process.main import process
+from executors.oxygen import api_oxy
+from executors.base import api_upd
+from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
+import os
+import sys
+import process.main
 from executors.krnl import api_krnl_exe
 
 # Makes importing DLLs manageable.
-cdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+cdir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if cdir == "":
     print(
         "Python was unable to get the main directory.  "
@@ -12,13 +19,8 @@ if cdir == "":
 
 sys.path.append(cdir)
 os.chdir(cdir)
-from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
-from executors.base import api_base, api_upd
-from executors.oxygen import api_oxy
-from proc import process
-import argparse
 
-EXEC_TYPES: dict[str : type[api_base]] = {
+EXEC_TYPES = {
     "wearedevs-dll": api_wrd_dll,
     "wearedevs-inj": api_wrd_inj,
     "wearedevs-exe": api_wrd_exe,
@@ -36,7 +38,7 @@ EXEC_TYPES: dict[str : type[api_base]] = {
 }
 
 
-def get_parse():
+def get_parse() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "executor",
@@ -63,6 +65,6 @@ if __name__ == "__main__":
 
         api = api_class()
         print("Executor has been successfully injected.")
-        process(api)
+        process.main.process(api)
     except ConnectionError as e:
         print(e)

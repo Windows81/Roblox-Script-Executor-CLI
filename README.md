@@ -2,7 +2,7 @@
 
 **R**oblox **S**cript **Exec**utor (rsexec) is a command-line interface that primarily uses the WeAreDevs API to run scripts on the Rōblox client. Sister repository to [Personal Roblox Client Scripts](https://github.com/Windows81/Personal-Roblox-Client-Scripts).
 
-To run my program, make sure Python **3.10** is installed and that you're using Windows.
+To run my program, make sure Python is installed and that you're using Windows.
 
 ```console
 pip install -r requirements.txt
@@ -128,7 +128,7 @@ However, this behaviour is not applied when done from a nested call. The followi
 ...
 ```
 
-### Sharp Corners
+#### Sharp Corners
 
 It is possible to return multi-value tuples into `_E.OUTPUT` or pass multiple Lua expressions into the `output` command. The generated output from multiple return values is separated by `;`. The `string.gsub()` function in Lua for example always returns a tuple consisting of _(string, number)_:
 
