@@ -84,7 +84,7 @@ If `/workspace/chat.lua` exists, it will be executed, with global table `_E.ARGS
 {"I'm exploiting and probably will catch someone's attention!", 6}
 ```
 
-Some scripts return stuff by initialising the `_E.RETURN` global table.
+Some scripts return stuff.
 
 ```
 > plr 'ar'

@@ -4,7 +4,6 @@ import executors.base as base
 from collections import deque
 from io import BufferedReader
 import requests
-import typing
 import time
 import os
 
@@ -34,7 +33,7 @@ INPUT_GEN = _gen(input, "\033[93m")
 FILE_THREADS: dict[str, BufferedReader] = {}
 
 
-def _func_head(arg_u):
+def _func_head(arg_u) -> str:
     if not arg_u:
         arg_u = "nil"
     arg_t = f"local A={{{arg_u}}}"
@@ -42,26 +41,26 @@ def _func_head(arg_u):
     return f"{arg_t}\n{arg_n}"
 
 
-def cmd_snippet(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_snippet(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     s_body = _param_single(api, body, level=level, **_kwa)
     return ParseResult(ParseStatus.SYNC, s_body)
 
 
-def cmd_function(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_function(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     arg_h = _func_head("...")
     f_body = _param_single(api, body, level=level, **_kwa)
     f_str = f"(function(...)\n{arg_h}\n{f_body}\nend)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
-def cmd_lambda(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_lambda(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     arg_h = _func_head("...")
     f_body = _param_single(api, body, level=level, **_kwa)
     f_str = f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
-def cmd_output(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_output(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     o_nl = api.output_call('"\\n"') if level else ""
     o_call = api.output_call("v")
     sep_c = api.output_call("'\x1b[00m; '")
@@ -76,7 +75,7 @@ def cmd_output(api: base.api_base, body: str, level=0, **_kwa):
     return ParseResult(ParseStatus.SYNC, s_body)
 
 
-def cmd_multiline(api: base.api_base, input_gen, body: str, level=0, **_kwa):
+def cmd_multiline(api: base.api_base, input_gen, body: str, level=0, **_kwa) -> ParseResult:
     lines = [body]
     while True:
         s_line = next(input_gen, "")
@@ -89,16 +88,18 @@ def cmd_multiline(api: base.api_base, input_gen, body: str, level=0, **_kwa):
     )
 
 
-def cmd_list():
+def cmd_list() -> ParseResult:
     for pos in os.listdir("workspace"):
         if pos.lower().endswith("lua"):
             print(f"- {pos}")
     return ParseResult(ParseStatus.RAW)
 
 
-def cmd_repeat(api: base.api_base, body: str, level=0, **_kwa):
-    [var, cmd] = _param_list(api, body, level=level, max_split=1, min_params=2, **_kwa)
-    append_block = f"T[I]={parse_str(api,cmd, level=level, **_kwa)}"
+def cmd_repeat(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+    [var, cmd] = _param_list(api, body, level=level,
+                             max_split=1, min_params=2, **_kwa)
+
+    append_block = f"T[I]={parse_str(api, cmd, level=level, **_kwa)}"
     table_block = f"for I,V in next,({var})do\n{append_block}\nend"
     incr_block = f"for I=1,({var})do\n{append_block}\nend"
     return ParseResult(
@@ -110,13 +111,15 @@ def cmd_repeat(api: base.api_base, body: str, level=0, **_kwa):
     )
 
 
-def cmd_batch(api: base.api_base, body: str, level=0, **_kwa):
-    [var, sb] = _param_list(api, body, level=level, max_split=1, min_params=2, **_kwa)
+def cmd_batch(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+    [var, sb] = _param_list(api, body, level=level,
+                            max_split=1, min_params=2, **_kwa)
+
     b_func = f"(function()\nfor I=1,({var})do\n{sb}\nend\nend)"
     return ParseResult(ParseStatus.SYNC, b_func)
 
 
-def cmd_loadstring(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_loadstring(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     [url, *args] = _param_list(api, body, level=level, **_kwa)
     arg_h = _func_head(", ".join(args))
     try:
@@ -129,7 +132,7 @@ def cmd_loadstring(api: base.api_base, body: str, level=0, **_kwa):
         return ParseResult(ParseStatus.RAW)
 
 
-def cmd_man(api: base.api_base, body: str, level=0, **_kwa):
+def cmd_man(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     alias = _param_single(api, body, level=level, **_kwa)
     if level:
         return ParseResult(ParseStatus.SYNC, f'_E.EXEC("man",{repr(alias)})')
@@ -144,9 +147,11 @@ def cmd_man(api: base.api_base, body: str, level=0, **_kwa):
     )
     gsp_e = api.output_call(f'"\x1b[91mAlias does not exist.\x1b[00m\\0"')
     gsp_s = (
-        f"local gsp=_E.GSP({repr(alias)})\n" + f"if not gsp then\n{gsp_e}\nreturn\nend"
+        f"local gsp=_E.GSP({repr(alias)})\n" +
+        f"if not gsp then\n{gsp_e}\nreturn\nend"
     )
-    man_e = api.output_call(f'"\x1b[91mAlias does not have help metatext.\x1b[00m\\0"')
+    man_e = api.output_call(
+        f'"\x1b[91mAlias does not have help metatext.\x1b[00m\\0"')
     man_s = (
         f"local man=_E.EXEC('man',{repr(alias)})\n"
         + f"if not man then\n{man_e}\nreturn\nend"
@@ -157,19 +162,19 @@ def cmd_man(api: base.api_base, body: str, level=0, **_kwa):
     )
 
 
-def cmd_dump(api: base.api_base, body: str, level=0, print=print, **_kwa):
+def cmd_dump(api: base.api_base, body: str, level=0, print=print, **_kwa) -> ParseResult:
+    [name, sub] = _param_list(
+        api,
+        body,
+        level=level,
+        max_split=1,
+        min_params=2,
+        default="",
+        **_kwa,
+    )
+    path: str = os.path.join(api._workspace_dir, f"_{name}.dat")
     try:
-        [name, sub] = _param_list(
-            api,
-            body,
-            level=level,
-            max_split=1,
-            min_params=2,
-            default="",
-            **_kwa,
-        )
         print("\x1b[00m", end="")
-        path = os.path.join(api._workspace_dir, f"_{name}.dat")
         opened = name in FILE_THREADS
         if sub.lower() == "reset":
             if opened:
@@ -186,10 +191,10 @@ def cmd_dump(api: base.api_base, body: str, level=0, print=print, **_kwa):
         _print_to_end(FILE_THREADS[name])
     except FileNotFoundError:
         print(f'\x1b[91mUnable to find "{path}".')
-    return ParseResult(ParseStatus.RAW, print)
+    return ParseResult(ParseStatus.RAW)
 
 
-def cmd_generic(api: base.api_base, head: str, body: str, level=0, **_kwa):
+def cmd_generic(api: base.api_base, head: str, body: str, level=0, **_kwa) -> ParseResult:
     o_call = api.output_call("v")
     sep_c = api.output_call("'\x1b[00m; '")
     o_sep = f"if i>1 then\n{sep_c}\nend"
@@ -206,7 +211,7 @@ def cmd_generic(api: base.api_base, head: str, body: str, level=0, **_kwa):
 
 
 # https://github.com/dabeaz/generators/blob/master/examples/follow.py
-def _print_to_end(o: BufferedReader, print=print):
+def _print_to_end(o: BufferedReader, print=print) -> bool:
     data = bytes()
     done = False
     while True:
@@ -221,7 +226,7 @@ def _print_to_end(o: BufferedReader, print=print):
 
 
 # Converts constructs of "[[%s]]" or "([%s])" into an rsexec command.
-def _parse_encap(api: base.api_base, encap, encap_i, level=0, **_kwa):
+def _parse_encap(api: base.api_base, encap: str, encap_i: int, level=0, **_kwa) -> str:
     if not len(encap):
         return encap
     do_parse = False
@@ -246,7 +251,7 @@ def _parse_encap(api: base.api_base, encap, encap_i, level=0, **_kwa):
     return encap
 
 
-def _param_single(api: base.api_base, body: str, level=0, **_kwa):
+def _param_single(api: base.api_base, body: str, level=0, **_kwa) -> str:
     encap_map = {
         "[": "]",
         "(": ")",
@@ -284,8 +289,8 @@ def _param_list(
     min_params=0,
     *_a,
     **_kwa,
-):
-    encap_map = {
+) -> list[str]:
+    encap_map: dict[str, str] = {
         "'": "'",
         '"': '"',
         "[": "]",
@@ -296,10 +301,10 @@ def _param_list(
     # raw_ps: list[str] = []
     param_buf: str = ""
     # raw_p_buf: str = ""
-    escaped = False
-    encap_l = deque()
+    escaped: bool = False
+    encap_l: deque[tuple[int, str]] = deque()
 
-    def finalise(buf):
+    def finalise(buf: str) -> str:
         if buf == "":
             buf = default
         return buf
@@ -370,9 +375,9 @@ def _param_list(
     return params  # , raw_ps
 
 
-def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print, **_kwa):
-    line = ""
-    first_l = next(input_gen, None)
+def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print, **_kwa) -> ParseResult:
+    line: str = ""
+    first_l: str = next(input_gen, None)  # type: ignore
     if not first_l:
         return ParseResult(ParseStatus.RAW)
     line = first_l.lstrip()
@@ -445,19 +450,20 @@ def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print, **
         return cmd_generic(**kwargs)
 
 
-def parse_str(api: base.api_base, string: str, **_kwa):
+def parse_str(api: base.api_base, string: str, **_kwa) -> str:
     res: ParseResult = _parse_rec(api, (_ for _ in [string]), **_kwa)
     return res.script
 
 
-def parse(api: base.api_base, input_gen=INPUT_GEN, print=print):
+def parse(api: base.api_base, input_gen=INPUT_GEN, print=print) -> ParseResult:
     return _parse_rec(api, input_gen, level=0, print=print)
 
 
-def process(api: base.api_base, input_gen: typing.Iterator[str] = INPUT_GEN):
+def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
     try:
         while True:
             script_lines = None
+            print("> ", end="")
             result = parse(api, input_gen, print)
             out_n = api.output_call('"\\0"')
             out_e = api.output_call('"\x1b[91m"..e.."\x1b[00m"')

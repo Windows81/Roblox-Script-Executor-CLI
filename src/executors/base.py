@@ -11,24 +11,21 @@ import ctypes.wintypes
 import win32com.client
 from typing_extensions import Self
 
-try:
-    clr.AddReference("System.IO")  # type: ignore
-    import System.IO  # type: ignore
+clr.AddReference("System.IO")  # type: ignore
+import System.IO  # type: ignore
 
-    clr.AddReference("System.IO.Pipes")  # type: ignore
-    import System.IO.Pipes  # type: ignore
+clr.AddReference("System.IO.Pipes")  # type: ignore
+import System.IO.Pipes  # type: ignore
 
-    clr.AddReference("System.Net")  # type: ignore
-    import System.Net  # type: ignore
-except ImportError:
-    pass
+clr.AddReference("System.Net")  # type: ignore
+import System.Net  # type: ignore
 
 
 class api_base:
     _instances: dict[str, Self] = {}
     _first_time: bool = True
 
-    OUTPUT_IO: io.BufferedReader
+    OUTPUT_IO: io.BufferedReader | None = None
     _workspace_dir: str = "workspace"
     _output_path: str
 
@@ -67,11 +64,12 @@ class api_base:
         raise NotImplementedError()
 
     def __del__(self) -> None:
-        self.OUTPUT_IO.close()
+        if self.OUTPUT_IO:
+            self.OUTPUT_IO.close()
 
     def follow_output(self) -> bool:
         data: bytes = bytes()
-        while True:
+        while self.OUTPUT_IO:
             data = self.OUTPUT_IO.read()
             if not data:
                 time.sleep(0)
@@ -81,7 +79,7 @@ class api_base:
         tries: float = 1e5
         processed: bool = False
         splice: bytes
-        while tries > 0:
+        while self.OUTPUT_IO and tries > 0:
             if data:
                 if data[-1] == 0:
                     splice = data[:-1]

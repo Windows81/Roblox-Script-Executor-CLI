@@ -1,12 +1,7 @@
-import argparse
-from process.main import process
-from executors.oxygen import api_oxy
-from executors.base import api_upd
-from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
-import os
-import sys
 import process.main
-from executors.krnl import api_krnl_exe
+import argparse
+import sys
+import os
 
 # Makes importing DLLs manageable.
 cdir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +15,11 @@ if cdir == "":
 sys.path.append(cdir)
 os.chdir(cdir)
 
+#from executors.oxygen import api_oxy
+from executors.base import api_upd
+from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
+from executors.krnl import api_krnl_exe
+
 EXEC_TYPES = {
     "wearedevs-dll": api_wrd_dll,
     "wearedevs-inj": api_wrd_inj,
@@ -31,10 +31,10 @@ EXEC_TYPES = {
     "wrd-exe": api_wrd_exe,
     "krnl": api_krnl_exe,
     "wrd": api_wrd_exe,
-    "oxygen-u": api_oxy,
-    "oxygenu": api_oxy,
-    "oxygen": api_oxy,
-    "oxy": api_oxy,
+    # "oxygen-u": api_oxy,
+    # "oxygenu": api_oxy,
+    # "oxygen": api_oxy,
+    # "oxy": api_oxy,
 }
 
 

@@ -11,22 +11,18 @@ def patch_prompt() -> bool:
     return True
 
 
-try:
-    clr.AddReference("System.IO.Pipes")  # type: ignore
-    import System.IO.Pipes  # type: ignore
+clr.AddReference("System.IO.Pipes")  # type: ignore
+import System.IO.Pipes  # type: ignore
 
-    clr.AddReference("System.Net")  # type: ignore
-    import System.Net  # type: ignore
+clr.AddReference("System.Net")  # type: ignore
+import System.Net  # type: ignore
 
-    clr.AddReference("WeAreDevs_API")  # type: ignore
-    import WeAreDevs_API  # type: ignore
+clr.AddReference("WeAreDevs_API")  # type: ignore
+import WeAreDevs_API  # type: ignore
 
-    # Quick hack to take care of TLS problems on WeAreDevs_API.dll.
-    spm = System.Net.ServicePointManager
-    spm.SecurityProtocol = System.Net.SecurityProtocolType(16320)
-
-except ImportError:
-    pass
+# Quick hack to take care of TLS problems on WeAreDevs_API.dll.
+spm = System.Net.ServicePointManager
+spm.SecurityProtocol = System.Net.SecurityProtocolType(16320)
 
 
 class api_wrd_dll(base.api_base):
@@ -53,13 +49,13 @@ class api_wrd_inj(base.api_inj, base.api_upd):
     JSON_URL = "https://cdn.wearedevs.net/software/exploitapi/latestdata.json"
     PIPE_NAME = "WeAreDevsPublicAPI_Lua"
 
-    def restart(self):
+    def restart(self) -> None:
         raise NotImplementedError(
             "32-bit DLL doesn't work with 64-bit RobloxPlayerBeta."
         )
 
     @staticmethod
-    def update():
+    def update() -> None:
         data = requests.get(api_wrd_inj.JSON_URL).json()
         if data["exploit-module"]["patched"] and not patch_prompt():
             exit()
