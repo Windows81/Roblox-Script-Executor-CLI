@@ -9,6 +9,8 @@ import win32event
 import win32process
 import ctypes.wintypes
 import win32com.client
+import executors.dump
+from executors.dump import dump
 from typing_extensions import Self
 
 clr.AddReference("System.IO")  # type: ignore
@@ -22,40 +24,45 @@ import System.Net  # type: ignore
 
 
 class api_base:
-    _instances: dict[str, Self] = {}
-    _first_time: bool = True
+    __instances: dict[str, Self] = {}
+    __dumps: dict[str, dump]
+    __first_time: bool
 
-    OUTPUT_IO: io.BufferedReader | None = None
-    _workspace_dir: str = "workspace"
-    _output_path: str
+    __output_io: io.BufferedReader | None = None
+    workspace_dir: str = "workspace"
+    output_path: str
 
     # It's messy here because I'm trying to enforce the singleton model.
     def __new__(cls, output="_output.dat") -> Self:
-        if output in api_base._instances:
-            return api_base._instances[output]
-        item = api_base._instances[output] = super().__new__(cls)
-        item._output_path = output
+        if output in api_base.__instances:
+            return api_base.__instances[output]
+        item = super().__new__(cls)
+        api_base.__instances[output] = item
+        item.output_path = output
+        item.__dumps = {}
 
+        item.__first_time = True
         item.restart()
-        item._first_time = False
+        item.__first_time = False
         return item
 
     def restart(self) -> None:
         # (Re)opens the output stream for console evaluation.
-        dump: str = os.path.join(self._workspace_dir, self._output_path)
-        if self.OUTPUT_IO:
-            self.OUTPUT_IO.close()
-        with open(dump, "wb") as _:
+        path: str = os.path.join(self.workspace_dir, self.output_path)
+        if self.__output_io:
+            self.__output_io.close()
+        with open(path, "wb") as _:
             pass
-        self.OUTPUT_IO = open(dump, "rb")
+        self.__output_io = open(path, "rb")
+
+        for name in executors.dump.CLEAR_ON_RUN_NAMES:
+            with open(self.dump_path(name), "wb") as _:
+                pass
 
         # Writes code that properly outputs to our console onto "workspace/output.lua".
-        olua: str = os.path.join(self._workspace_dir, "output.lua")
+        olua: str = os.path.join(self.workspace_dir, "output.lua")
         with open(olua, "w") as f:
             f.write(f"_E.RETURN={self.output_call('_E.ARGS[1]')}")
-
-    def output_call(self, s, suffix="nil") -> str:
-        return f"_E.EXEC('save',{repr(self._output_path)},{s},{suffix},true)"
 
     def exec(self, _: str) -> None:
         raise NotImplementedError()
@@ -64,13 +71,16 @@ class api_base:
         raise NotImplementedError()
 
     def __del__(self) -> None:
-        if self.OUTPUT_IO:
-            self.OUTPUT_IO.close()
+        if self.__output_io:
+            self.__output_io.close()
 
-    def follow_output(self) -> bool:
+    def output_call(self, s, suffix="nil") -> str:
+        return f"_E.EXEC('save',{repr(self.output_path)},{s},{suffix},true)"
+
+    def output_follow(self) -> bool:
         data: bytes = bytes()
-        while self.OUTPUT_IO:
-            data = self.OUTPUT_IO.read()
+        while self.__output_io:
+            data = self.__output_io.read()
             if not data:
                 time.sleep(0)
                 continue
@@ -79,7 +89,7 @@ class api_base:
         tries: float = 1e5
         processed: bool = False
         splice: bytes
-        while self.OUTPUT_IO and tries > 0:
+        while self.__output_io and tries > 0:
             if data:
                 if data[-1] == 0:
                     splice = data[:-1]
@@ -94,11 +104,41 @@ class api_base:
             else:
                 tries -= 1
             time.sleep(0)
-            data = self.OUTPUT_IO.read()
+            data = self.__output_io.read()
         return processed
+
+    def dump_path(self, name: str) -> str:
+        return os.path.join(self.workspace_dir, f"_{name}.dat")
+
+    def dump_get(self, name: str) -> dump | None:
+        path = self.dump_path(name)
+        return self.__dumps.setdefault(path, dump(path))
+
+    # https://github.com/dabeaz/generators/blob/master/examples/follow.py
+    def dump_follow(self, name: str, print=print) -> bool:
+        dump = self.dump_get(name)
+        data = bytes()
+        done = False
+        while dump:
+            data = dump.file_thread.read()
+            if not data:
+                break
+            done = True
+            ps = data.decode("utf-8")
+            print(ps, end="")
+        print("", end="\n" if done else "")
+        return done
+
+    def dump_reset(self, name: str) -> int:
+        path = self.dump_path(name)
+        if path in self.__dumps:
+            return self.__dumps[path].reset()
+        self.__dumps[path] = dump(path)
+        return 0
 
 
 class api_inj(api_base):
+    '''APIs which support connecting to named pipes.'''
     PIPE_NAME: str
 
     def restart(self) -> None:

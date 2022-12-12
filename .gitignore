@@ -2,5 +2,5 @@ WORKSPACE/**
 !WORKSPACE/__auto.lua
 *.lnk
 LOGS/**
-*/__pycache__/*
-__pycache__/*
+**/__pycache__/*
+__pycache__/

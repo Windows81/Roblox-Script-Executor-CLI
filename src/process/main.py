@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from enum import Enum
 import executors.base as base
 from collections import deque
 from io import BufferedReader
+import executors.dump as dump
+from enum import Enum
 import requests
+import typing
 import time
 import os
 
@@ -23,13 +25,13 @@ class ParseResult:
     script: str = ""
 
 
-def _gen(f=input, *args, **kwargs):
+def _gen(f=input, *args, **kwargs) -> typing.Generator[str, None, None]:
     while (v := f(*args, **kwargs)) != None:
         yield v
 
 
 # Shared resource pool to prevent file collisions.
-INPUT_GEN = _gen(input, "\033[93m")
+INPUT_GEN = _gen(input)
 FILE_THREADS: dict[str, BufferedReader] = {}
 
 
@@ -41,31 +43,31 @@ def _func_head(arg_u) -> str:
     return f"{arg_t}\n{arg_n}"
 
 
-def cmd_snippet(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
-    s_body = _param_single(api, body, level=level, **_kwa)
+def cmd_snippet(api: base.api_base, body: str, level=0) -> ParseResult:
+    s_body = _param_single(api, body, level=level)
     return ParseResult(ParseStatus.SYNC, s_body)
 
 
-def cmd_function(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_function(api: base.api_base, body: str, level=0) -> ParseResult:
     arg_h = _func_head("...")
-    f_body = _param_single(api, body, level=level, **_kwa)
+    f_body = _param_single(api, body, level=level)
     f_str = f"(function(...)\n{arg_h}\n{f_body}\nend)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
-def cmd_lambda(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_lambda(api: base.api_base, body: str, level=0) -> ParseResult:
     arg_h = _func_head("...")
-    f_body = _param_single(api, body, level=level, **_kwa)
+    f_body = _param_single(api, body, level=level)
     f_str = f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
-def cmd_output(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_output(api: base.api_base, body: str, level=0) -> ParseResult:
     o_nl = api.output_call('"\\n"') if level else ""
     o_call = api.output_call("v")
     sep_c = api.output_call("'\x1b[00m; '")
 
-    param_l = _param_list(api, body, level=level, **_kwa)
+    param_l = _param_list(api, body, level=level)
     o_body = "\n".join(f"{{{alias}}}," for alias in param_l)
 
     o_sep = f"if i>1 then\n{sep_c}\nend"
@@ -75,7 +77,7 @@ def cmd_output(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     return ParseResult(ParseStatus.SYNC, s_body)
 
 
-def cmd_multiline(api: base.api_base, input_gen, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_multiline(api: base.api_base, input_gen, body: str, level=0) -> ParseResult:
     lines = [body]
     while True:
         s_line = next(input_gen, "")
@@ -84,7 +86,7 @@ def cmd_multiline(api: base.api_base, input_gen, body: str, level=0, **_kwa) -> 
             break
     return ParseResult(
         ParseStatus.SYNC,
-        _param_single(api, "\n".join(lines), level=level, **_kwa),
+        _param_single(api, "\n".join(lines), level=level),
     )
 
 
@@ -95,11 +97,11 @@ def cmd_list() -> ParseResult:
     return ParseResult(ParseStatus.RAW)
 
 
-def cmd_repeat(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_repeat(api: base.api_base, body: str, level=0) -> ParseResult:
     [var, cmd] = _param_list(api, body, level=level,
-                             max_split=1, min_params=2, **_kwa)
+                             max_split=1, min_params=2)
 
-    append_block = f"T[I]={parse_str(api, cmd, level=level, **_kwa)}"
+    append_block = f"T[I]={parse_str(api, cmd, level=level)}"
     table_block = f"for I,V in next,({var})do\n{append_block}\nend"
     incr_block = f"for I=1,({var})do\n{append_block}\nend"
     return ParseResult(
@@ -111,16 +113,16 @@ def cmd_repeat(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     )
 
 
-def cmd_batch(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_batch(api: base.api_base, body: str, level=0) -> ParseResult:
     [var, sb] = _param_list(api, body, level=level,
-                            max_split=1, min_params=2, **_kwa)
+                            max_split=1, min_params=2)
 
     b_func = f"(function()\nfor I=1,({var})do\n{sb}\nend\nend)"
     return ParseResult(ParseStatus.SYNC, b_func)
 
 
-def cmd_loadstring(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
-    [url, *args] = _param_list(api, body, level=level, **_kwa)
+def cmd_loadstring(api: base.api_base, body: str, level=0) -> ParseResult:
+    [url, *args] = _param_list(api, body, level=level)
     arg_h = _func_head(", ".join(args))
     try:
         script = requests.get(url)
@@ -132,8 +134,8 @@ def cmd_loadstring(api: base.api_base, body: str, level=0, **_kwa) -> ParseResul
         return ParseResult(ParseStatus.RAW)
 
 
-def cmd_man(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
-    alias = _param_single(api, body, level=level, **_kwa)
+def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
+    alias = _param_single(api, body, level=level)
     if level:
         return ParseResult(ParseStatus.SYNC, f'_E.EXEC("man",{repr(alias)})')
 
@@ -162,7 +164,7 @@ def cmd_man(api: base.api_base, body: str, level=0, **_kwa) -> ParseResult:
     )
 
 
-def cmd_dump(api: base.api_base, body: str, level=0, print=print, **_kwa) -> ParseResult:
+def cmd_dump(api: base.api_base, body: str, level=0, print=print) -> ParseResult:
     [name, sub] = _param_list(
         api,
         body,
@@ -170,31 +172,20 @@ def cmd_dump(api: base.api_base, body: str, level=0, print=print, **_kwa) -> Par
         max_split=1,
         min_params=2,
         default="",
-        **_kwa,
     )
-    path: str = os.path.join(api._workspace_dir, f"_{name}.dat")
     try:
         print("\x1b[00m", end="")
-        opened = name in FILE_THREADS
         if sub.lower() == "reset":
-            if opened:
-                pos = FILE_THREADS[name].tell()
-                FILE_THREADS[name].seek(0)
-                print(f'Reset "{path}" from byte {hex(pos)}.')
-            else:
-                FILE_THREADS[name] = open(path, "rb")
-                print(f'Opened "{path}".')
-            return ParseResult(ParseStatus.RAW)
-
-        elif not opened:
-            FILE_THREADS[name] = open(path, "rb")
-        _print_to_end(FILE_THREADS[name])
+            pos = api.dump_reset(name)
+            print(f'Reset "{name}" from byte {hex(pos)}.')
+        else:
+            api.dump_follow(name)
     except FileNotFoundError:
-        print(f'\x1b[91mUnable to find "{path}".')
+        print(f'\x1b[91mUnable to find "{name}".')
     return ParseResult(ParseStatus.RAW)
 
 
-def cmd_generic(api: base.api_base, head: str, body: str, level=0, **_kwa) -> ParseResult:
+def cmd_generic(api: base.api_base, head: str, body: str, level=0) -> ParseResult:
     o_call = api.output_call("v")
     sep_c = api.output_call("'\x1b[00m; '")
     o_sep = f"if i>1 then\n{sep_c}\nend"
@@ -210,23 +201,8 @@ def cmd_generic(api: base.api_base, head: str, body: str, level=0, **_kwa) -> Pa
     return ParseResult(ParseStatus.SYNC, body)
 
 
-# https://github.com/dabeaz/generators/blob/master/examples/follow.py
-def _print_to_end(o: BufferedReader, print=print) -> bool:
-    data = bytes()
-    done = False
-    while True:
-        data = o.read()
-        if not data:
-            break
-        done = True
-        ps = data.decode("utf-8")
-        print(ps, end="")
-    print("", end="\n" if done else "")
-    return done
-
-
 # Converts constructs of "[[%s]]" or "([%s])" into an rsexec command.
-def _parse_encap(api: base.api_base, encap: str, encap_i: int, level=0, **_kwa) -> str:
+def _parse_encap(api: base.api_base, encap: str, encap_i: int, level=0) -> str:
     if not len(encap):
         return encap
     do_parse = False
@@ -247,11 +223,11 @@ def _parse_encap(api: base.api_base, encap: str, encap_i: int, level=0, **_kwa) 
 
     # print(encap, do_parse)
     if do_parse:
-        return parse_str(api, trim, level=level + 1, **_kwa)
+        return parse_str(api, trim, level=level + 1)
     return encap
 
 
-def _param_single(api: base.api_base, body: str, level=0, **_kwa) -> str:
+def _param_single(api: base.api_base, body: str, level=0) -> str:
     encap_map = {
         "[": "]",
         "(": ")",
@@ -268,7 +244,7 @@ def _param_single(api: base.api_base, body: str, level=0, **_kwa) -> str:
         if len(encap_l) and ch == encap_l[-1][1]:
             last_i, _ = encap_l.pop()
             encap = param_buf[last_i:]
-            result = _parse_encap(api, encap, last_i, level=level, **_kwa)
+            result = _parse_encap(api, encap, last_i, level=level)
             param_buf = param_buf[0:last_i] + result
             i += len(result) - len(encap)
             continue
@@ -333,7 +309,7 @@ def _param_list(
             # raw_p_buf += ch
             last_i, _ = encap_l.pop()
             encap = param_buf[last_i:]
-            result = _parse_encap(api, encap, last_i, level=level, **_kwa)
+            result = _parse_encap(api, encap, last_i, level=level)
             param_buf = param_buf[0:last_i] + result
             i += len(result) - len(encap)
             continue
@@ -375,7 +351,7 @@ def _param_list(
     return params  # , raw_ps
 
 
-def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print, **_kwa) -> ParseResult:
+def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print) -> ParseResult:
     line: str = ""
     first_l: str = next(input_gen, None)  # type: ignore
     if not first_l:
@@ -393,83 +369,83 @@ def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print, **
         "input_gen": input_gen,
         "level": level,
         "print": print,
-        **_kwa,
     }
 
     # One-line snippet.
     if head_l in ["s", "snip", "snippet"]:
-        return cmd_snippet(**kwargs)
+        return cmd_snippet(api, body, level)
 
     elif head_l in ["f", "func", "function"]:
-        return cmd_function(**kwargs)
+        return cmd_function(api, body, level)
 
     # Single-statement function; 'return' is prepended.
     elif head_l in ["l", "lambda"]:
-        return cmd_lambda(**kwargs)
+        return cmd_lambda(api, body, level)
 
     # Treats each parameter as its own statement, outputs each to the console.
     elif head_l in ["o", "output"]:
-        return cmd_output(**kwargs)
+        return cmd_output(api, body, level)
 
     # Multi-line script.
     elif head_l in ["ml", "m", "multiline"]:
-        return cmd_multiline(**kwargs)
+        return cmd_multiline(api, input_gen, body, level)
 
     # Lists Lua files in the workspace folder.
     elif head_l in ["list"]:
-        return cmd_list(**kwargs)
+        return cmd_list()
 
     elif head_l in ["repeat"]:
-        return cmd_repeat(**kwargs)
+        return cmd_repeat(api, body, level)
 
     elif head_l in ["b", "batch"]:
-        return cmd_batch(**kwargs)
+        return cmd_batch(api, body, level)
 
     # Loads Lua(u) code from a URL.
     elif head_l in ["ls", "loadstring"]:
-        return cmd_loadstring(**kwargs)
+        return cmd_loadstring(api, body, level)
 
     # Generates help page for the given command alias.
     elif head_l in ["man"]:
-        return cmd_man(**kwargs)
+        return cmd_man(api, body, level)
 
     elif head_l in ["dump"] and not level:
-        return cmd_dump(**kwargs)
+        return cmd_dump(api, body, level)
 
     elif head_l in ["r", "reset", "restart"]:
         return ParseResult(ParseStatus.RESTART)
 
     # Clears the console.
-    elif head_l in ["cl", "cls", "clr"]:
+    elif head_l in ["cl", "cls", "clr", "clear"]:
         return ParseResult(ParseStatus.CLEAR)
 
     elif head_l == ["e", "exit"]:
         return ParseResult(ParseStatus.EXIT)
 
     else:
-        return cmd_generic(**kwargs)
+        return cmd_generic(api, head, body, level)
 
 
-def parse_str(api: base.api_base, string: str, **_kwa) -> str:
-    res: ParseResult = _parse_rec(api, (_ for _ in [string]), **_kwa)
+def parse_str(api: base.api_base, string: str, level=0) -> str:
+    g = (_ for _ in [string])
+    res: ParseResult = _parse_rec(api, input_gen=g, level=level)
     return res.script
 
 
 def parse(api: base.api_base, input_gen=INPUT_GEN, print=print) -> ParseResult:
-    return _parse_rec(api, input_gen, level=0, print=print)
+    return _parse_rec(api, input_gen=input_gen, level=0, print=print)
 
 
 def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
     try:
         while True:
             script_lines = None
-            print("> ", end="")
+            print("\x1b[00m> \033[93m", end="")
             result = parse(api, input_gen, print)
             out_n = api.output_call('"\\0"')
-            out_e = api.output_call('"\x1b[91m"..e.."\x1b[00m"')
+            out_e = api.output_call('"\x1b[91m"..e')
             err_b = f"if not s then\n{out_e}\nend"
             msg_e = "Syntax error; perhaps check the devconsole."
-            err_s = api.output_call(f'"\x1b[91m{msg_e}\x1b[00m\\0"')
+            err_s = api.output_call(f'"\x1b[91m{msg_e}\\0"')
             pcall = f"local s,e=pcall(function()\n{result.script};end)"
             var = f"_E.RUN{str(time.time()).replace('.','')}"
 
@@ -501,7 +477,7 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
 
             print(f"\x1b[00m", end="")
             try:
-                anything = api.follow_output()
+                anything = api.output_follow()
                 print(f"", end="\n" if anything else "")
             except KeyboardInterrupt:
                 print(

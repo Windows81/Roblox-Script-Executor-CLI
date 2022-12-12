@@ -61,7 +61,7 @@ if __name__ == "__main__":
             if issubclass(api_class, api_upd):
                 api_class.update()
             else:
-                print("Execution method must be updated manually.")
+                print('"--update" is not valid; execution method must be updated manually.')
 
         api = api_class()
         print("Executor has been successfully injected.")
