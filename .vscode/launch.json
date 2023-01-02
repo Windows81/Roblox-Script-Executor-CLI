@@ -22,6 +22,15 @@
 			"args": []
 		},
 		{
+			"name": "Python: Patch",
+			"type": "python",
+			"request": "launch",
+			"program": "patches/patch.py",
+			"console": "integratedTerminal",
+			"justMyCode": true,
+			"args": []
+		},
+		{
 			"name": "C/C++: gcc.exe build and debug ckrnl",
 			"type": "cppdbg",
 			"request": "launch",

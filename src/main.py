@@ -1,4 +1,4 @@
-import process.main
+import interface
 import argparse
 import sys
 import os
@@ -65,6 +65,6 @@ if __name__ == "__main__":
 
         api = api_class()
         print("Executor has been successfully injected.")
-        process.main.process(api)
+        interface.process(api)
     except ConnectionError as e:
         print(e)

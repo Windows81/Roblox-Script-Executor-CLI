@@ -489,5 +489,7 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
         pass
     except EOFError:
         pass
+    except Exception:
+        pass
     finally:
         print("\033[00m", end="")

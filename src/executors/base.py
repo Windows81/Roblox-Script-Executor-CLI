@@ -74,8 +74,8 @@ class api_base:
         if self.__output_io:
             self.__output_io.close()
 
-    def output_call(self, s, suffix="nil") -> str:
-        return f"_E.EXEC('save',{repr(self.output_path)},{s},{suffix},true)"
+    def output_call(self, s, suffix="nil", pretty=True) -> str:
+        return f"_E.EXEC('save',{repr(self.output_path)},{s},{'true' if pretty else 'false'},{suffix},true)"
 
     def output_follow(self) -> bool:
         data: bytes = bytes()
