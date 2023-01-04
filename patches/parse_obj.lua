@@ -1,9 +1,3 @@
-local _, make_writeable = next{ --
-	make_writeable,
-	setreadonly,
-	set_readonly,
-}
-
 local function get_name(o) -- Returns proper string wrapping for instances
 	local n = o.Name:gsub('"', '\\"')
 	local f = '.%s'
@@ -34,7 +28,7 @@ function get_full(o)
 	return 'NIL' .. r
 end
 
-local PARAM_REPR_TYPES = { --
+local ARG_REPR_TYPES = { --
 	CFrame = true,
 	Vector3 = true,
 	Vector2 = true,
@@ -51,6 +45,26 @@ local SEQ_KEYP_TYPES = { --
 	NumberSequenceKeypoint = true,
 }
 
+local function escape_char(c)
+	if c == '\n' then
+		return '\\n'
+	elseif c == '\r' then
+		return '\\r'
+	elseif c == '\t' then
+		return '\\t'
+	elseif c == '\b' then
+		return '\\b'
+	elseif c == '\f' then
+		return '\\f'
+	elseif c == '"' then
+		return '\\"'
+	elseif c == '\\' then
+		return '\\\\'
+	else
+		return string.format('\\u{%x}', c:byte())
+	end
+end
+
 function parse(obj, nl, lvl) -- Convert the types into strings
 	local t = typeof(obj)
 	local lvl = lvl or 0
@@ -58,37 +72,30 @@ function parse(obj, nl, lvl) -- Convert the types into strings
 
 	if t == 'string' then
 		if lvl == 0 then return obj end
-		return ('"%s"'):format(
-			obj:gsub(
-				'.', { --
-					['\n'] = '\\n',
-					['\t'] = '\\t',
-					['\0'] = '\\0',
-					['\1'] = '\\1',
-				}))
+		return string.format('"%s"', obj:gsub('[\000-\031%\\"]', escape_char))
 
 	elseif t == 'Instance' then -- Instance:GetFullName() except it's not handicapped
 		return get_full(obj)
 
 	elseif t == 'table' then
 		if lvl > 666 then return 'DEEP_TABLE' end
-		local alpha_vals = {}
+		local keyed_vals = {}
 		local ipair_vals = {}
 		local tab = '  '
 		local c = 0
 
-		local ws_end = ''
-		if nl then ws_end = string.format('\n%s', string.rep(tab, lvl)) end
+		local ws_beg = ' '
+		local ws_cat = ' '
+		local ws_end = ' '
+		local sep = ','
+		if nl then
+			ws_beg = string.format('\n%s', string.rep(tab, lvl + 1))
+			ws_cat = string.format('\n%s', string.rep(tab, lvl + 1))
+			ws_end = string.format('\n%s', string.rep(tab, lvl))
+		end
 
 		for i, o in next, obj do
 			c = c + 1
-
-			local ws
-			if nl then
-				nl = string.format('\n%s', string.rep(tab, lvl + 1))
-			else
-				ws = ' '
-			end
 
 			local o_str
 			if o ~= obj then
@@ -98,48 +105,50 @@ function parse(obj, nl, lvl) -- Convert the types into strings
 			end
 
 			if c == i then
-				table.insert(ipair_vals, string.format('%s%s,', ws, o_str))
+				table.insert(ipair_vals, string.format('%s%s', o_str, sep))
 			else
 				local i_str = i ~= obj and parse(i, nl, lvl + 1) or 'THIS_TABLE'
-				table.insert(alpha_vals, string.format('%s[%s] = %s,', ws, i_str, o_str))
+				table.insert(keyed_vals, string.format('[%s] = %s%s', i_str, o_str, sep))
 			end
 		end
 
-		table.sort(alpha_vals)
-		local alpha_str = table.concat(alpha_vals, '')
-		local ipair_str = table.concat(ipair_vals, '')
+		-- Merges keyed values with ipair values - in that order.
+		table.sort(keyed_vals)
+		table.move(ipair_vals, 1, #ipair_vals, #keyed_vals + 1, keyed_vals)
+		local all_str = table.concat(keyed_vals, ws_cat)
+		return string.format('{%s%s%s}', ws_beg, all_str, ws_end)
 
-		local all_str = string.format('%s%s', ipair_str, alpha_str)
-		if not nl and #all_str > 0 then all_str = string.gsub(all_str, '^%s+', '') end
-		return string.format('{%s%s}', all_str, ws_end)
-
-	elseif PARAM_REPR_TYPES[t] then
-		return string.format('%s.new(%s)', t, tostring(obj):gsub('[{}]', ''))
+	elseif ARG_REPR_TYPES[t] then
+		local f_args = {t, tostring(obj):gsub('[{}]', '')}
+		return string.format('%s.new(%s)', unpack(f_args))
 
 	elseif SEQ_REPR_TYPES[t] then
-		return string.format('%s.new %s', t, parse(obj.Keypoints, lvl))
+		local f_args = {t, parse(obj.Keypoints, nl, lvl)}
+		return string.format('%s.new(%s)', unpack(f_args))
 
 	elseif SEQ_KEYP_TYPES[t] then
-		return string.format('%s.new(%s, %s)', t, obj.Time, parse(obj.Value, lvl))
+		local f_args = {t, obj.Time, parse(obj.Value, nl, lvl)}
+		return string.format('%s.new(%s, %s)', unpack(f_args))
 
 	elseif t == 'Color3' then
-		return ('%s.fromRGB(%d, %d, %d)'):format(
-			t, obj.R * 255, obj.G * 255, obj.B * 255)
+		local f_args = {t, obj.R * 255, obj.G * 255, obj.B * 255}
+		return string.format('%s.fromRGB(%d, %d, %d)', unpack(f_args))
 
 	elseif t == 'NumberRange' then
-		return string.format(
-			'%s.new(%s, %s)', t, tostring(obj.Min), tostring(obj.Max))
+		local f_args = {t, tostring(obj.Min), tostring(obj.Max)}
+		return string.format('%s.new(%s, %s)', unpack(f_args))
 
-	elseif t == 'userdata' then -- Remove __tostring fields to counter traps
+	elseif t == 'userdata' then
 		local res
 		local meta = getrawmetatable(obj)
-		local __tostring = meta and meta.__tostring
-		if __tostring then
-			make_writeable(meta, false)
+		local m_ts = meta and meta.__tostring
+		-- Remove __tostring fields to counter traps.
+		if m_ts then
+			setreadonly(meta, false)
 			meta.__tostring = nil
 			res = tostring(obj)
-			rawset(meta, '__tostring', __tostring)
-			make_writeable(meta, rawget(meta, '__metatable') ~= nil)
+			rawset(meta, '__tostring', m_ts)
+			setreadonly(meta, rawget(meta, '__metatable') ~= nil)
 		else
 			res = tostring(obj)
 		end

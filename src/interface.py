@@ -139,12 +139,24 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
     if level:
         return ParseResult(ParseStatus.SYNC, f'_E.EXEC("man",{repr(alias)})')
 
+    # Header with command name coloured and in uppercase.
     o_call = api.output_call(
-        f"'\\n\x1b[93m'..gsp:upper()"
-        + "..':\\n\x1b[94m'..man"
+        f"'\\n\x1b[93m'..gsp:upper().."
+
+        # Change colour; begin Lua gsub chain.
+        + "':\\n\x1b[94m'..man"
+
+        # Convert line breaks from CRLF to LF.
         + ":gsub('\\r\\n','\\n')"
+
+        # Remove lines which begin in "--".
+        + ":gsub('\\n%-%-[^\\n]+','\\n')"
+
+        # Change parameter numbering format; also add some colour.
         + ":gsub('%[(%d+)%] %- ([^\\n]+)\\n([^%[]+)', '\x1b[91m%1) \x1b[92m%2\x1b[90m\\n%3')"
         + ":gsub('\\n\\t','\\n    ')"
+
+        # Restore to original colour.
         + f'.."\\n\x1b[00m"'
     )
     gsp_e = api.output_call(f'"\x1b[91mAlias does not exist.\x1b[00m\\0"')
@@ -153,7 +165,7 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
         f"if not gsp then\n{gsp_e}\nreturn\nend"
     )
     man_e = api.output_call(
-        f'"\x1b[91mAlias does not have help metatext.\x1b[00m\\0"')
+        f'"\x1b[91mAlias does not have "help" metatext.\x1b[00m\\0"')
     man_s = (
         f"local man=_E.EXEC('man',{repr(alias)})\n"
         + f"if not man then\n{man_e}\nreturn\nend"
