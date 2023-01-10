@@ -32,8 +32,10 @@ class api_base:
     workspace_dir: str = "workspace"
     output_path: str
 
-    # It's messy here because I'm trying to enforce the singleton model.
     def __new__(cls, output="_output.dat") -> Self:
+        '''
+        It's messy here because I'm trying to enforce the singleton model.
+        '''
         if output in api_base.__instances:
             return api_base.__instances[output]
         item = super().__new__(cls)
@@ -47,7 +49,9 @@ class api_base:
         return item
 
     def restart(self) -> None:
-        # (Re)opens the output stream for console evaluation.
+        '''
+        (Re)opens the output stream for console evaluation.
+        '''
         path: str = os.path.join(self.workspace_dir, self.output_path)
         if self.__output_io:
             self.__output_io.close()
@@ -59,10 +63,10 @@ class api_base:
             with open(self.dump_path(name), "wb") as _:
                 pass
 
-        # Writes code that properly outputs to our console onto "workspace/output.lua".
+        # Writes code onto "workspace/output.lua" which properly outputs to our console.
         olua: str = os.path.join(self.workspace_dir, "output.lua")
         with open(olua, "w") as f:
-            f.write(f"_E.RETURN={self.output_call('_E.ARGS[1]')}")
+            f.write(f"return {self.output_call('_E.ARGS[1]')}")
 
     def exec(self, _: str) -> None:
         raise NotImplementedError()

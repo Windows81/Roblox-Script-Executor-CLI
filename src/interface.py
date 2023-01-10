@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import executors.base as base
 from collections import deque
 from io import BufferedReader
-import executors.dump as dump
 from enum import Enum
 import requests
 import typing
@@ -159,17 +158,22 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
         # Restore to original colour.
         + f'.."\\n\x1b[00m"'
     )
+
+    # In case of inability to resolve path (add "\0" to tell program to receive input).
     gsp_e = api.output_call(f'"\x1b[91mAlias does not exist.\x1b[00m\\0"')
     gsp_s = (
         f"local gsp=_E.GSP({repr(alias)})\n" +
         f"if not gsp then\n{gsp_e}\nreturn\nend"
     )
+
+    # In case of found script lacking docstring (add "\0" to tell program to receive input).
     man_e = api.output_call(
         f'"\x1b[91mAlias does not have "help" metatext.\x1b[00m\\0"')
     man_s = (
         f"local man=_E.EXEC('man',{repr(alias)})\n"
         + f"if not man then\n{man_e}\nreturn\nend"
     )
+
     return ParseResult(
         ParseStatus.SYNC,
         f"{gsp_s}\n{man_s}\n{o_call}",
@@ -374,14 +378,6 @@ def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print) ->
 
     head, body = (*line.split(" ", 1), "")[0:2]
     head_l = head.lower()
-    kwargs = {
-        "api": api,
-        "head": head,
-        "body": body,
-        "input_gen": input_gen,
-        "level": level,
-        "print": print,
-    }
 
     # One-line snippet.
     if head_l in ["s", "snip", "snippet"]:
@@ -453,18 +449,34 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
             script_lines = None
             print("\x1b[00m> \033[93m", end="")
             result = parse(api, input_gen, print)
+
+            # Add "\0" to tell Rsexec to receive input once script is done.
             out_n = api.output_call('"\\0"')
+
+            # Snippet to wrap the result in a Lua pcall block.
+            pcall = f"local s,e=pcall(function()\n{result.script};end)"
+
+            # Snippet to colour console text red and output Lua variable 'e' if pcall block fails.
             out_e = api.output_call('"\x1b[91m"..e')
             err_b = f"if not s then\n{out_e}\nend"
-            msg_e = "Syntax error; perhaps check the devconsole."
-            err_s = api.output_call(f'"\x1b[91m{msg_e}\\0"')
-            pcall = f"local s,e=pcall(function()\n{result.script};end)"
+
+            # Uniquely generated Lua flag name whose value:
+            # 1. is initially false,
+            # 2. becomes true when we run the script, and
+            # 3. becomes false again if success.
             var = f"_E.RUN{str(time.time()).replace('.','')}"
 
             if result.status == ParseStatus.SYNC:
+                # Snippet to colour console text red and output Python constant 'msg_e'.
+                msg_e = "Syntax error; perhaps check the devconsole."
+                err_s = api.output_call(f'"\x1b[91m{msg_e}\\0"')
+
                 script_lines = [
-                    f"local c=7\nrepeat c=c-1\ntask.wait(0)\nif {var} then\nreturn\nend\nuntil c==0\n{err_s}",
+                    # Run script block wrapped in Lua pcall, then allow Rsexec to request input after 0.2 seconds.
                     f"{var}=true\n{pcall}\n{err_b}\ntask.wait(0.2)\n{out_n}\n{var}=false",
+
+                    # Syntax error protection: check a few times if the flag was set to true in the other snippet.
+                    f"local c=7\nrepeat c=c-1\ntask.wait(0)\nif {var} then\nreturn\nend\nuntil c==0\n{err_s}",
                 ]
 
             elif result.status == ParseStatus.ASYNC:
