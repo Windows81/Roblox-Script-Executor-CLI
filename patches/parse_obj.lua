@@ -1,51 +1,3 @@
--- Returns proper string wrapping for instances
-local function obj_name(o)
-	local n = o.Name:gsub('"', '\\"')
-	local f = '.%s'
-	if #n == 0 then
-		f = '["%s"]'
-	elseif n:match('[^%w]+') then
-		f = '["%s"]'
-	elseif n:sub(1, 1):match('[^%a]') then
-		f = '["%s"]'
-	end
-	return string.format(f, n)
-end
-
-local lp = game.Players.LocalPlayer
-function get_full(o)
-	if not o then return nil end
-	local r = parse(obj_name(o))
-	local p = o.Parent
-	while p do
-		if p == game then
-			return 'game' .. r
-		elseif p == lp then
-			return 'game.Players.LocalPlayer' .. r
-		end
-		r = parse(obj_name(p)) .. r
-		p = p.Parent
-	end
-	return 'NIL' .. r
-end
-
-local ARG_REPR_TYPES = { --
-	CFrame = true,
-	Vector3 = true,
-	Vector2 = true,
-	Vector3int16 = true,
-	Vector2int16 = true,
-	UDim2 = true,
-}
-local SEQ_REPR_TYPES = { --
-	ColorSequence = true,
-	NumberSequence = true,
-}
-local SEQ_KEYP_TYPES = { --
-	ColorSequenceKeypoint = true,
-	NumberSequenceKeypoint = true,
-}
-
 local function escape_char(c)
 	if c == '\n' then
 		return '\\n'
@@ -66,6 +18,56 @@ local function escape_char(c)
 	end
 end
 
+local function repr_str(s)
+	return string.format('"%s"', s:gsub('[\000-\031%\\"]', escape_char))
+end
+
+-- Returns proper string wrapping for instances
+local function obj_name(o)
+	local n = o.Name
+	if #n == 0 --
+	or n:match('[^%w]+') --
+	or n:sub(1, 1):match('[^%a]') --
+	then return string.format('[%s]', repr_str(n)) end
+	return string.format('.%s', n)
+end
+
+function get_full(o)
+	local lp = game.Players.LocalPlayer
+	if not o then return nil end
+	local r = {obj_name(o)}
+	local p = o.Parent
+	while p do
+		if p == game then
+			return table.insert(r, 1, 'game')
+		elseif p == lp then
+			table.insert(r, 1, 'game.Players.LocalPlayer')
+			return table.concat(r, '')
+		end
+		r = table.insert(r, 1, repr_str(obj_name(p)))
+		p = p.Parent
+	end
+	table.insert(r, 1, 'NIL')
+	return table.concat(r, '')
+end
+
+local ARG_REPR_TYPES = { --
+	CFrame = true,
+	Vector3 = true,
+	Vector2 = true,
+	Vector3int16 = true,
+	Vector2int16 = true,
+	UDim2 = true,
+}
+local SEQ_REPR_TYPES = { --
+	ColorSequence = true,
+	NumberSequence = true,
+}
+local SEQ_KEYP_TYPES = { --
+	ColorSequenceKeypoint = true,
+	NumberSequenceKeypoint = true,
+}
+
 function parse(obj, nl, lvl) -- Convert the types into strings
 	local typ = typeof(obj)
 	local lvl = lvl or 0
@@ -73,7 +75,7 @@ function parse(obj, nl, lvl) -- Convert the types into strings
 
 	if typ == 'string' then
 		if lvl == 0 then return obj end
-		return string.format('"%s"', obj:gsub('[\000-\031%\\"]', escape_char))
+		return repr_str(obj)
 	end
 
 	-- Instance:GetFullName() except it's not handicapped
