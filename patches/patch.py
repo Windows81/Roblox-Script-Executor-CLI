@@ -45,7 +45,7 @@ def patch_lines(lines: list[str]) -> list[str]:
     zipped = list(zip(begs, ends, fles))
     for b, e, f in reversed(zipped):
         path = os.path.join(PATCH_PATH, f)
-        res[b + 1:e] = ['\r', *patch_file(path), '\r']
+        res[b + 1:e] = patch_file(path)
     return res
 
 

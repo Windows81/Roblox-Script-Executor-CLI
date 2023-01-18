@@ -168,7 +168,7 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
 
     # In case of found script lacking docstring (add "\0" to tell program to receive input).
     man_e = api.output_call(
-        f'"\x1b[91mAlias does not have "help" metatext.\x1b[00m\\0"')
+        f'"\x1b[91mAlias does not have \\"help\\" metatext.\x1b[00m\\0"')
     man_s = (
         f"local man=_E.EXEC('man',{repr(alias)})\n"
         + f"if not man then\n{man_e}\nreturn\nend"

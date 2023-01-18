@@ -39,12 +39,13 @@ function get_full(o)
 	local p = o.Parent
 	while p do
 		if p == game then
-			return table.insert(r, 1, 'game')
+			table.insert(r, 1, 'game')
+			return table.concat(r, '')
 		elseif p == lp then
 			table.insert(r, 1, 'game.Players.LocalPlayer')
 			return table.concat(r, '')
 		end
-		r = table.insert(r, 1, repr_str(obj_name(p)))
+		table.insert(r, 1, obj_name(p))
 		p = p.Parent
 	end
 	table.insert(r, 1, 'NIL')
