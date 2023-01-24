@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import executors.base as base
 from collections import deque
 from io import BufferedReader
+from functools import cache
 from enum import Enum
 import requests
 import typing
@@ -34,12 +35,20 @@ INPUT_GEN = _gen(input)
 FILE_THREADS: dict[str, BufferedReader] = {}
 
 
+@cache
+def ansi_code(code: str = '00') -> str:
+    return f'\x1b[{code}m'
+
+
 def _func_head(arg_u) -> str:
     if not arg_u:
         arg_u = "nil"
     arg_t = f"local A={{{arg_u}}}"
     arg_n = f"local {','.join(f'a{n}' for n in range(1,10))}={arg_u}"
-    return f"{arg_t}\n{arg_n}"
+    return f"""
+    {arg_t}
+    {arg_n}
+    """
 
 
 def cmd_snippet(api: base.api_base, body: str, level=0) -> ParseResult:
@@ -50,30 +59,42 @@ def cmd_snippet(api: base.api_base, body: str, level=0) -> ParseResult:
 def cmd_function(api: base.api_base, body: str, level=0) -> ParseResult:
     arg_h = _func_head("...")
     f_body = _param_single(api, body, level=level)
-    f_str = f"(function(...)\n{arg_h}\n{f_body}\nend)"
+    f_str = f"(function(...) {arg_h} {f_body} end)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
 def cmd_lambda(api: base.api_base, body: str, level=0) -> ParseResult:
     arg_h = _func_head("...")
     f_body = _param_single(api, body, level=level)
-    f_str = f"(function(...)\n{arg_h}\nreturn {f_body}\nend)"
+    f_str = f"(function(...) {arg_h} return {f_body} end)"
     return ParseResult(ParseStatus.RAW, f_str)
 
 
 def cmd_output(api: base.api_base, body: str, level=0) -> ParseResult:
-    o_nl = api.output_call('"\\n"') if level else ""
-    o_call = api.output_call("v")
-    sep_c = api.output_call("'\x1b[00m; '")
-
     param_l = _param_list(api, body, level=level)
-    o_body = "\n".join(f"{{{alias}}}," for alias in param_l)
-
-    o_sep = f"if i>1 then\n{sep_c}\nend"
-    o_loop = f"if t then\nfor i,v in next,t do\n{o_sep}\n{o_call}\nend\nend"
-    o_reset = f"_E.OUTPUT=nil"
-    s_body = f"(function(...)\nfor i,t in next,{{{o_body}}}do\n{o_sep}\n{o_loop}\n{o_nl}\n{o_reset}\nend\nend)()"
-    return ParseResult(ParseStatus.SYNC, s_body)
+    o_table = "\n".join(f"{{{alias}}}," for alias in param_l)
+    return ParseResult(
+        ParseStatus.SYNC,
+        f"""
+        (function(...)
+            for i,t in next,{{{o_table}}}do
+                if i>1 then
+                    {api.output_call(f"'{ansi_code()}; '")}
+                end
+                if t then
+                    for i,v in next,t do
+                        if i>1 then
+                            {api.output_call(f"'{ansi_code()}; '")}
+                        end
+                        {api.output_call("v")}
+                    end
+                end
+                {api.output_call(repr(chr(10))) if level else ""}
+                _E.OUTPUT=nil
+            end
+        end)()
+        """,
+    )
 
 
 def cmd_multiline(api: base.api_base, input_gen, body: str, level=0) -> ParseResult:
@@ -97,27 +118,40 @@ def cmd_list() -> ParseResult:
 
 
 def cmd_repeat(api: base.api_base, body: str, level=0) -> ParseResult:
-    [var, cmd] = _param_list(api, body, level=level,
-                             max_split=1, min_params=2)
-
-    append_block = f"T[I]={parse_str(api, cmd, level=level)}"
-    table_block = f"for I,V in next,({var})do\n{append_block}\nend"
-    incr_block = f"for I=1,({var})do\n{append_block}\nend"
+    [var, cmd] = _param_list(api, body, level=level, max_split=1, min_params=2)
     return ParseResult(
         ParseStatus.SYNC,
-        f"(function()\nlocal T={{}}\n"
-        + f"if typeof({var})=='table'then\n{table_block}\n"
-        + f"else\n{incr_block}\nend\n"
-        + f"return T\nend)()",
+        f"""
+        (function()
+            local T={{}}
+            if typeof({var})=='table'then
+                for I,V in next,({var})do
+                    T[I]={parse_str(api, cmd, level=level)}
+                end
+            else
+                for I=1,({var})do
+                    T[I]={parse_str(api, cmd, level=level)}
+                end
+            end
+            return T
+        end)()
+        """,
     )
 
 
 def cmd_batch(api: base.api_base, body: str, level=0) -> ParseResult:
-    [var, sb] = _param_list(api, body, level=level,
-                            max_split=1, min_params=2)
+    [var, sb] = _param_list(api, body, level=level, max_split=1, min_params=2)
 
-    b_func = f"(function()\nfor I=1,({var})do\n{sb}\nend\nend)"
-    return ParseResult(ParseStatus.SYNC, b_func)
+    return ParseResult(
+        ParseStatus.SYNC,
+        f"""
+        (function()
+            for I=1,({var})do
+                {sb}
+            end
+        end)
+        """,
+    )
 
 
 def cmd_loadstring(api: base.api_base, body: str, level=0) -> ParseResult:
@@ -125,11 +159,11 @@ def cmd_loadstring(api: base.api_base, body: str, level=0) -> ParseResult:
     arg_h = _func_head(", ".join(args))
     try:
         script = requests.get(url)
-        body = f"(function()\n{arg_h}\n{script.text}\nend)()"
+        body = f"(function() {arg_h} {script.text} end)()"
         return ParseResult(ParseStatus.ASYNC, body)
 
     except requests.exceptions.RequestException as e:
-        print(f"\x1b[91m{e.strerror}")
+        print(f"{ansi_code('91')}{e.strerror}")
         return ParseResult(ParseStatus.RAW)
 
 
@@ -140,10 +174,10 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
 
     # Header with command name coloured and in uppercase.
     o_call = api.output_call(
-        f"'\\n\x1b[93m'..gsp:upper().."
+        f"'\\n{ansi_code('93')}'..gsp:upper().."
 
         # Change colour; begin Lua gsub chain.
-        + "':\\n\x1b[94m'..man"
+        + f"':\\n{ansi_code('94')}'..man"
 
         # Convert line breaks from CRLF to LF.
         + ":gsub('\\r\\n','\\n')"
@@ -152,31 +186,36 @@ def cmd_man(api: base.api_base, body: str, level=0) -> ParseResult:
         + ":gsub('\\n%-%-[^\\n]+','\\n')"
 
         # Change parameter numbering format; also add some colour.
-        + ":gsub('%[(%d+)%] %- ([^\\n]+)\\n([^%[]+)', '\x1b[91m%1) \x1b[92m%2\x1b[90m\\n%3')"
-        + ":gsub('\\n\\t','\\n    ')"
+        + f"""
+        :gsub('%[(%d+)%] %- ([^\\n]+)\\n([^%[]+)', '{ansi_code('91')}%1) {ansi_code('92')}%2{ansi_code('90')}\\n%3')
+        :gsub('\\n\\t','\\n    ')
+        """
 
         # Restore to original colour.
-        + f'.."\\n\x1b[00m"'
+        + f'.."\\n{ansi_code()}"'
     )
 
     # In case of inability to resolve path (add "\0" to tell program to receive input).
-    gsp_e = api.output_call(f'"\x1b[91mAlias does not exist.\x1b[00m\\0"')
-    gsp_s = (
-        f"local gsp=_E.GSP({repr(alias)})\n" +
-        f"if not gsp then\n{gsp_e}\nreturn\nend"
-    )
+    gsp_e = f'"{ansi_code("91")}Alias does not exist.{ansi_code()}\\0"'
 
     # In case of found script lacking docstring (add "\0" to tell program to receive input).
-    man_e = api.output_call(
-        f'"\x1b[91mAlias does not have \\"help\\" metatext.\x1b[00m\\0"')
-    man_s = (
-        f"local man=_E.EXEC('man',{repr(alias)})\n"
-        + f"if not man then\n{man_e}\nreturn\nend"
-    )
+    man_e = f'"{ansi_code("91")}Alias does not have \\"help\\" metatext.{ansi_code()}\\0"'
 
     return ParseResult(
         ParseStatus.SYNC,
-        f"{gsp_s}\n{man_s}\n{o_call}",
+        f"""
+        local gsp=_E.GSP({repr(alias)})
+        if not gsp then
+            {api.output_call(gsp_e)}
+            return
+        end
+        local man=_E.EXEC('man',{repr(alias)})
+        if not man then
+            {api.output_call(man_e)}
+            return
+        end
+        {o_call}
+        """,
     )
 
 
@@ -190,31 +229,93 @@ def cmd_dump(api: base.api_base, body: str, level=0, print=print) -> ParseResult
         default="",
     )
     try:
-        print("\x1b[00m", end="")
+        print(ansi_code(), end="")
         if sub.lower() == "reset":
             pos = api.dump_reset(name)
             print(f'Reset "{name}" from byte {hex(pos)}.')
         else:
             api.dump_follow(name)
     except FileNotFoundError:
-        print(f'\x1b[91mUnable to find "{name}".')
+        print(f'{ansi_code("91")}Unable to find "{name}".')
     return ParseResult(ParseStatus.RAW)
 
 
-def cmd_generic(api: base.api_base, head: str, body: str, level=0) -> ParseResult:
-    o_call = api.output_call("v")
-    sep_c = api.output_call("'\x1b[00m; '")
-    o_sep = f"if i>1 then\n{sep_c}\nend"
-    o_loop = f"if t then\nfor i,v in next,t do\n{o_sep}\n{o_call}\nend\nend"
+def cmd_find_path(api: base.api_base, body: str, level=0) -> ParseResult:
+    param_l = _param_list(api, body, level=level)
+    o_table = f'{{{"".join(f"_E.FIND_PATH({repr(alias)}) or false," for alias in param_l)}}}'
+    if level:
+        return ParseResult(ParseStatus.SYNC, o_table)
 
+    return ParseResult(
+        ParseStatus.SYNC,
+        f"""
+        (function(...)
+            for i,v in next,{o_table}do
+                if i>1 then
+                    {api.output_call(f"'{ansi_code()}; '")}
+                end
+                if v then
+                    {api.output_call("v")}
+                else
+                    {api.output_call(repr(f'{ansi_code("91")}nil{ansi_code()}'))}
+                end
+                _E.OUTPUT=nil
+            end
+        end)()
+        """,
+    )
+
+
+def cmd_path_list(api: base.api_base, body: str, level=0) -> ParseResult:
+    param_l = _param_list(api, body, level=level)
+    o_table = f'{{{"".join(f"_E.PATH_LIST({repr(alias)})," for alias in param_l)}}}'
+    if level:
+        return ParseResult(ParseStatus.SYNC, o_table)
+
+    return ParseResult(
+        ParseStatus.SYNC,
+        f"""
+        (function(...)
+            for i,t in next,{o_table}do
+                if i>1 then
+                    {api.output_call(f"'{ansi_code()}; '")}
+                end
+                for i,v in next,t do
+                    if i>1 then
+                        {api.output_call(f"'{ansi_code()}; '")}
+                    end
+                    {api.output_call("v")}
+                end
+                _E.OUTPUT=nil
+            end
+        end)()
+        """,
+    )
+
+
+def cmd_generic(api: base.api_base, head: str, body: str, level=0) -> ParseResult:
     pl = _param_list(api, body, level=level)
     join = "".join(f", {s}" for s in pl)
+    result = f'_E.EXEC("{head}"{join})'
     if level:
-        return ParseResult(ParseStatus.SYNC, f'_E.EXEC("{head}"{join})')
+        return ParseResult(ParseStatus.SYNC, result)
 
     # Prints the returned output script of a command if we're on a top-level parse.
-    body = f'local r={{_E.EXEC("{head}"{join})}}\nlocal t=_E.OUTPUT or r\n{o_loop}'
-    return ParseResult(ParseStatus.SYNC, body)
+    return ParseResult(
+        ParseStatus.SYNC,
+        f"""
+        local r={{{result}}}
+        local t=_E.OUTPUT or r
+        if t then
+            for i,v in next,t do
+                if i>1 then
+                    {api.output_call(f"'{ansi_code()}; '")}
+                end
+                {api.output_call('v')}
+            end
+        end
+        """,
+    )
 
 
 # Converts constructs of "[[%s]]" or "([%s])" into an rsexec command.
@@ -398,6 +499,12 @@ def _parse_rec(api: base.api_base, input_gen=INPUT_GEN, level=0, print=print) ->
     elif head_l in ["ml", "m", "multiline"]:
         return cmd_multiline(api, input_gen, body, level)
 
+    elif head_l in ["find", "find-path", "path"]:
+        return cmd_find_path(api, body, level)
+
+    elif head_l in ["pl", "path-list", "paths"]:
+        return cmd_path_list(api, body, level)
+
     # Lists Lua files in the workspace folder.
     elif head_l in ["list"]:
         return cmd_list()
@@ -447,18 +554,9 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
     try:
         while True:
             script_lines = None
-            print("\x1b[00m> \033[93m", end="")
+            print(f"{ansi_code()}> {ansi_code('93')}", end="")
             result = parse(api, input_gen, print)
-
-            # Add "\0" to tell Rsexec to receive input once script is done.
-            out_n = api.output_call('"\\0"')
-
-            # Snippet to wrap the result in a Lua pcall block.
-            pcall = f"local s,e=pcall(function()\n{result.script};end)"
-
-            # Snippet to colour console text red and output Lua variable 'e' if pcall block fails.
-            out_e = api.output_call('"\x1b[91m"..e')
-            err_b = f"if not s then\n{out_e}\nend"
+            zero_chr = '\\0'
 
             # Uniquely generated Lua flag name whose value:
             # 1. is initially false,
@@ -467,20 +565,44 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
             var = f"_E.RUN{str(time.time()).replace('.','')}"
 
             if result.status == ParseStatus.SYNC:
-                # Snippet to colour console text red and output Python constant 'msg_e'.
                 msg_e = "Syntax error; perhaps check the devconsole."
-                err_s = api.output_call(f'"\x1b[91m{msg_e}\\0"')
 
                 script_lines = [
                     # Run script block wrapped in Lua pcall, then allow Rsexec to request input after 0.2 seconds.
-                    f"{var}=true\n{pcall}\n{err_b}\ntask.wait(0.2)\n{out_n}\n{var}=false",
+                    # Also ensure {result.script} is in the first line to ensure accurate exception handline.
+                    f"""
+                    {var}=true local s,e=pcall(function() {result.script}; end)
+                    if not s then
+                        api.output_call(f'"{ansi_code("91")}"..e')
+                    end
+                    task.wait(0.2)
+                    {api.output_call(f'"{zero_chr}"')}
+                    {var}=false
+                    """,
 
                     # Syntax error protection: check a few times if the flag was set to true in the other snippet.
-                    f"local c=7\nrepeat c=c-1\ntask.wait(0)\nif {var} then\nreturn\nend\nuntil c==0\n{err_s}",
+                    f"""
+                    local c=7
+                    repeat c=c-1
+                    task.wait(0)
+                    if {var} then
+                    return
+                    end
+                    until c==0
+                    {api.output_call(f'"{ansi_code("91")}{msg_e}{zero_chr}"')}
+                    """,
                 ]
 
             elif result.status == ParseStatus.ASYNC:
-                script_lines = [f"{pcall}\n{err_b}\n{out_n}"]
+                script_lines = [
+                    f"""
+                    local s,e=pcall(function() {result.script}; end)
+                    if not s then
+                        {api.output_call(f'"{ansi_code("91")}"..e')}
+                    end
+                    {api.output_call(f'"{zero_chr}"')}
+                    """,
+                ]
 
             elif result.status == ParseStatus.RAW and result.script:
                 script_lines = [result.script]
@@ -499,13 +621,13 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
             for l in script_lines:
                 api.exec(l)
 
-            print(f"\x1b[00m", end="")
+            print(ansi_code(), end="")
             try:
                 anything = api.output_follow()
                 print(f"", end="\n" if anything else "")
             except KeyboardInterrupt:
                 print(
-                    "\x1b[91mProcess is still running; future output may be garbled.",
+                    f"{ansi_code('91')}Process is still running; future output may be garbled.",
                     end="\n",
                 )
 
@@ -516,4 +638,4 @@ def process(api: base.api_base, input_gen=INPUT_GEN) -> None:
     except Exception:
         pass
     finally:
-        print("\033[00m", end="")
+        print(ansi_code(), end="")
