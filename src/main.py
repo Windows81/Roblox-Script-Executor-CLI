@@ -63,8 +63,8 @@ if __name__ == "__main__":
             else:
                 print('"--update" is not valid; execution method must be updated manually.')
 
-        api = api_class()
+        client = interface.client(api_class(), interface.command_mode.PREFIX)
         print("Executor has been successfully injected.")
-        interface.process(api)
+        interface.process(client)
     except ConnectionError as e:
         print(e)

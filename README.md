@@ -15,29 +15,71 @@ The commands shown do not reflect whatever is available in the Lua `getrenv()` o
 
 ### Basic Syntax
 
+Commands consist of two main parts: the head and the body.
+
+The **head** is the substring ranging from the first non-whitespace character to the first space after it.
+
+The head often points to an alias which is a file in the following format:
+
+```js
+${ROOT_FOLDER}/workspace/${BASE_NAME}.lua
 ```
-> output 6+4
+
+The **body** is everything after it.
+
+Some commands (such as `find`) split the body further into distinct parameters using a space delimiter. Others (such as `output`) treat the entire body as a single argument.
+
+Commands are prefixed by either `;` or `:`, as neither are used to begin a statement in Lua(u).
+
+```
+> ;output 6+4
 10
 ```
 
 ```
-> output "string"
+> ;output "string"
 string
 ```
 
 ```
-> output workspace
+> ;output workspace
 game.Workspace
 ```
 
 The prefix `output` can be substituted for `o`.
+
+It is possible to store multi-value tuples into Lua variable `_E.OUTPUT` in a workspace script (see 'Output Formatting'). The generated output from multiple return values is separated by `;`. The `string.gsub()` function in Lua for example always returns a tuple consisting of _(string, number)_:
+
+```
+> ;output (string.gsub("abb", "b", "c"))
+acc; 2
+```
+
+### Executing Scripts in `/workspace`
+
+```
+> ;chat "I'm exploiting and probably will catch someone's attention!" 6
+```
+
+If `/workspace/chat.lua` exists, it will be executed, with global table `_E.ARGS` initialised as:
+
+```lua
+{"I'm exploiting and probably will catch someone's attention!", 6}
+```
+
+Some scripts return stuff.
+
+```
+> ;plr 'vis'
+game.Players.VisualPlugin
+```
 
 ### Loadstrings
 
 Like any good script execution platform, rsexec should be able to run scripts from the internet. The name `loadstring` is misleading here because unlike its Lua counterpart, it also grabs Lua code from a provided URL. Note that the URL is _not_ wrapped in quotes, as it is not parsed from a Lua object.
 
 ```
-> ls https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source
+> ;ls https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source
 ```
 
 This works more-or-less the same as:
@@ -50,11 +92,20 @@ The prefix `ls` can be substituted for `loadstring`.
 
 ### Single-Line Snippets
 
+Code blocks without a command prefix will be passed in as-is to the evaluator.
+
 ```
-> snippet game.Players.LocalPlayer.Character.Humanoid.Health = 0
+> game.Players.LocalPlayer.Character.Humanoid.Health = 0
 ```
 
-Your character should die.
+```
+> ;snippet game.Players.LocalPlayer.Character.Humanoid.Health = 0
+```
+
+Your character should die either way.
+
+Alternatively, you can use prefix `snippet`.
+
 The prefix `snippet` can be substituted for `snip` or `s`.
 
 ### Multi-Line Snippets
@@ -62,39 +113,21 @@ The prefix `snippet` can be substituted for `snip` or `s`.
 Multi-line snippets keep accepting input up to the first empty line. Useful for prototyping ... I guess?
 
 ```
-> multiline
+> ;multiline
 game.Players.LocalPlayer.Character.Humanoid.Health = 0
 
-> o 6
+> ;o 6
 6
 ```
 
-That's another way your character can die. It also prints 6 for your convenience.
+That's another way your character can die. It also prints 6 to promote distinguishability.
+
 The prefix `multiline` can be substituted for `ml` or `m`.
-
-### Executing Scripts in `/workspace`
-
-```
-> chat "I'm exploiting and probably will catch someone's attention!" 6
-```
-
-If `/workspace/chat.lua` exists, it will be executed, with global table `_E.ARGS` initialised as:
-
-```lua
-{"I'm exploiting and probably will catch someone's attention!", 6}
-```
-
-Some scripts return stuff.
-
-```
-> plr 'ar'
-game.Players.MechaArtoGamer
-```
 
 ### Nesting Calls
 
 ```
-> del [[tree game.Workspace:GetDescendants()]]
+> ;del [[tree game.Workspace:GetDescendants()]]
 ```
 
 From `/workspace/tree.lua`, returns a list of all objects in your Workspace.
@@ -108,7 +141,7 @@ To produce human-likeable output, some workspace scripts print a custom string w
 Many of those custom outputs use ANSI colour codes to improve readability.
 
 ```
-> tree game.ReplicatedStorage
+> ;tree game.ReplicatedStorage
 [02] game.ReplicatedStorage.EmoteBar {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.clientConfig {ModuleScript}
 [03] game.ReplicatedStorage.EmoteBar.emotes {ModuleScript}
@@ -119,7 +152,7 @@ Many of those custom outputs use ANSI colour codes to improve readability.
 However, this behaviour is not applied when done from a nested call. The following snippet will print a machine-readble Lua table:
 
 ```
-> output [[tree game.ReplicatedStorage]]
+> ;output [[tree game.ReplicatedStorage]]
 {
   game.ReplicatedStorage.EmoteBar,
   game.ReplicatedStorage.EmoteBar.clientConfig,
@@ -128,25 +161,9 @@ However, this behaviour is not applied when done from a nested call. The followi
 ...
 ```
 
-#### Sharp Corners
-
-It is possible to return multi-value tuples into `_E.OUTPUT` or pass multiple Lua expressions into the `output` command. The generated output from multiple return values is separated by `;`. The `string.gsub()` function in Lua for example always returns a tuple consisting of _(string, number)_:
-
-```
-> output (string.gsub("abb", "b", "c"))
-acc; 2
-```
-
-Unlike Lua's `print()` statement, tuples in rsexec preserved all their elements if followed by another expression.
-
-```
-> output (string.gsub("abb", "b", "c")) (string.gsub("xyz", "x", "0"))
-acc; 2; 0yz; 1
-```
-
 ### Remote Spy
 
-Rsexec runs Remote Spy immediately once it is injected. Events sent to the client vía OnClientEvent are also received, unlike other advanced implementations of Remote Spy. There are no GUIs are there to clutter the screen. Remotes do however fill up in `./_rspy.dat` on a per-session basis. Rsexec offers a way to dump Remote Spy logs to the console, as shown below. Executing `dump` starts the file pointer from the end of the previous read, per file name:
+Rsexec runs Remote Spy immediately once it is injected. Events sent to the client vía OnClientEvent are also received, unlike other advanced implementations of Remote Spy. There are no GUIs are there to clutter the screen. Remotes do however fill up in `/workspace/_rspy.dat` on a per-session basis. Rsexec offers a way to dump Remote Spy logs to the console, as shown below. Executing `dump` starts the file pointer from the end of the previous read, per file name:
 
 ```
 > dump rspy
@@ -155,7 +172,7 @@ Rsexec runs Remote Spy immediately once it is injected. Events sent to the clien
 ### Functions
 
 ```
-> tree game.workspace [[function return a1.Parent.Name == 'Head']]
+> ;tree game.workspace [[function return a1.Parent.Name == 'Head']]
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.Head {WrapTarget}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.NeckRigAttachment {Attachment}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.FaceFrontAttachment {Attachment}
@@ -187,7 +204,7 @@ The prefix `function` can be substituted for `func` or `f`.
 Lambdas are useful for writing dynamic one-liners that take advantage of other features of the rsexec language. I personally use it a lot for the `tree` command.
 
 ```
-> tree game.workspace [[lambda a1.Parent.Name == 'Head']]
+> ;tree game.workspace [[lambda a1.Parent.Name == 'Head']]
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.Head {WrapTarget}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.NeckRigAttachment {Attachment}
 [06] game.Workspace.InteractiveModels.AvatarEditorModel.NpcModel.Head.FaceFrontAttachment {Attachment}
