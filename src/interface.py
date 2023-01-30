@@ -63,6 +63,9 @@ def _func_head(arg_u) -> str:
 
 
 def cmd_snippet(client: client, body: str, level=0) -> parse_result:
+    '''
+    Returns a simple one-line snippet.
+    '''
     s_body = _param_single(client, body, level=level)
     return parse_result(parse_status.SYNC, s_body)
 
@@ -75,6 +78,9 @@ def cmd_function(client: client, body: str, level=0) -> parse_result:
 
 
 def cmd_lambda(client: client, body: str, level=0) -> parse_result:
+    '''
+    Single-statement function; 'return' is prepended.
+    '''
     arg_h = _func_head("...")
     f_body = _param_single(client, body, level=level)
     f_str = f"(function(...) {arg_h} return {f_body} end)"
@@ -82,6 +88,9 @@ def cmd_lambda(client: client, body: str, level=0) -> parse_result:
 
 
 def cmd_output(client: client, body: str, level=0) -> parse_result:
+    '''
+    Treats each parameter as its own statement, outputs each to the console.
+    '''
     s_body = _param_single(client, body, level=level)
     return parse_result(
         parse_status.SYNC,
@@ -107,6 +116,9 @@ def cmd_output(client: client, body: str, level=0) -> parse_result:
 
 
 def cmd_multiline(client: client, input_gen, body: str, level=0) -> parse_result:
+    '''
+    Uses the input generator to run a multi-line script.
+    '''
     lines = [body]
     while True:
         s_line = next(input_gen, "")
@@ -120,6 +132,9 @@ def cmd_multiline(client: client, input_gen, body: str, level=0) -> parse_result
 
 
 def cmd_list() -> parse_result:
+    '''
+    Lists Lua files in the workspace folder.
+    '''
     for pos in os.listdir("workspace"):
         if pos.lower().endswith("lua"):
             print(f"- {pos}")
@@ -164,6 +179,9 @@ def cmd_batch(client: client, body: str, level=0) -> parse_result:
 
 
 def cmd_loadstring(client: client, body: str, level=0) -> parse_result:
+    '''
+    Loads Lua(u) code from a URL.
+    '''
     [url, *args] = _param_list(client, body, level=level)
     arg_h = _func_head(", ".join(args))
     try:
@@ -177,6 +195,9 @@ def cmd_loadstring(client: client, body: str, level=0) -> parse_result:
 
 
 def cmd_man(client: client, body: str, level=0) -> parse_result:
+    '''
+    Generates help page for the given command alias.
+    '''
     alias = _param_single(client, body, level=level)
     if level > 0:
         return parse_result(parse_status.SYNC, f'_E.EXEC("man",{repr(alias)})')
@@ -485,22 +506,18 @@ def _parse_rec(client: client, input_gen=INPUT_GEN, level=0) -> parse_result:
     head, body = (*line.split(" ", 1), "")[0:2]
     head_l = head.lower()
 
-    # One-line snippet.
     if head_l in ["s", "snip", "snippet"]:
         return cmd_snippet(client, body, level)
 
     elif head_l in ["f", "func", "function"]:
         return cmd_function(client, body, level)
 
-    # Single-statement function; 'return' is prepended.
     elif head_l in ["l", "lambda"]:
         return cmd_lambda(client, body, level)
 
-    # Treats each parameter as its own statement, outputs each to the console.
     elif head_l in ["o", "output"]:
         return cmd_output(client, body, level)
 
-    # Multi-line script.
     elif head_l in ["ml", "m", "multiline"]:
         return cmd_multiline(client, input_gen, body, level)
 
@@ -510,7 +527,6 @@ def _parse_rec(client: client, input_gen=INPUT_GEN, level=0) -> parse_result:
     elif head_l in ["pl", "path-list", "paths"]:
         return cmd_path_list(client, body, level)
 
-    # Lists Lua files in the workspace folder.
     elif head_l in ["list"]:
         return cmd_list()
 
@@ -520,12 +536,10 @@ def _parse_rec(client: client, input_gen=INPUT_GEN, level=0) -> parse_result:
     elif head_l in ["b", "batch"]:
         return cmd_batch(client, body, level)
 
-    # Loads Lua(u) code from a URL.
     elif head_l in ["ls", "loadstring"]:
         return cmd_loadstring(client, body, level)
 
-    # Generates help page for the given command alias.
-    elif head_l in ["man"]:
+    elif head_l in ["help", "h", "man"]:
         return cmd_man(client, body, level)
 
     elif head_l in ["dump"] and not level:
