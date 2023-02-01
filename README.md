@@ -1,4 +1,4 @@
-<h1 align="center">R𝒮𝐸𝒳EC</h1>
+<h1 align="center">• R𝒮𝐸𝒳EC •</h1>
 
 **R**oblox **S**cript **Exec**utor (rsexec) is a command-line interface that primarily uses the WeAreDevs API to run scripts on the Rōblox client. Sister repository to [Personal Roblox Client Scripts](https://github.com/Windows81/Personal-Roblox-Client-Scripts).
 
@@ -9,7 +9,15 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
-## Examples of use
+## Why Rsexec?
+
+I used JJSploit for a few years and found that having to deal with GUIs there when most of my other workflows live in PowerShell isn't great for productivity. It was a hassle for me to open a new file-selector window and modify a few initial values just to get a script I saved to run. Too many clicks!
+
+To solve that problem, I had to iterate. I started out with adding a global renv function `exec` which passes in a file path, relative to `/workspace` and a few other parameters. Then I had to modify existing scripts to work with my parameterisation system (using `\_G.EXEC_ARGS`). I later added support for `\_G.EXEC_RETURN`, which turned my rudimentary script hub into an extensible function library.
+
+I wasn't done yet! I wrote a Python program to hook the WeAreDevs DLL through `finj.exe` and connected with named pipes from the comfort of my terminal. The output was still printed onto the developer console, which still required mouse intervention -- so I wrote clunky wrapper code that pipes module output into the console (and not using rconsoleprint). It has since improved drastically.
+
+## Examples of Use
 
 The commands shown do not reflect whatever is available in the Lua `getrenv()` or `getfenv()` environments.
 
