@@ -7,7 +7,7 @@ local SCRIPTS = { --
 	'zoom-dist.lua',
 	'far-click.lua',
 	'tele-key.lua',
-	'fly.lua',
+	-- 'fly.lua',
 	-- 'auto-rej.lua',
 	-- 'mute.lua',
 	'locale.lua',

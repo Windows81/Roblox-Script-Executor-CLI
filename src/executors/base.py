@@ -9,9 +9,43 @@ import win32event
 import win32process
 import ctypes.wintypes
 import win32com.client
-import executors.dump
-from executors.dump import dump
+from io import BufferedReader
 from typing_extensions import Self
+
+CLEAR_ON_RUN_NAMES = [
+    'rspy',
+]
+
+
+class output_dump:
+    file_thread: BufferedReader
+    output_path: str
+
+    def __init__(self, path: str) -> None:
+        self.file_thread = open(path, "rb")
+        self.output_path = path
+
+    def reset(self) -> int:
+        pos = self.file_thread.tell()
+        self.file_thread.seek(0)
+        return pos
+
+    def __del__(self) -> None:
+        self.file_thread.close()
+
+    def follow(self) -> bool:
+        data = bytes()
+        done = False
+        while self:
+            data = self.file_thread.read()
+            if not data:
+                break
+            done = True
+            ps = data.decode("utf-8")
+            print(ps, end="")
+        print("", end="\n" if done else "")
+        return done
+
 
 clr.AddReference("System.IO")  # type: ignore
 import System.IO  # type: ignore
@@ -25,7 +59,7 @@ import System.Net  # type: ignore
 
 class api_base:
     __instances: dict[str, Self] = {}
-    __dumps: dict[str, dump]
+    __dumps: dict[str, output_dump]
     __first_time: bool
 
     __output_io: io.BufferedReader | None = None
@@ -60,8 +94,9 @@ class api_base:
         self.__output_io = open(path, "rb")
 
         for name in executors.dump.CLEAR_ON_RUN_NAMES:
-            with open(self.dump_path(name), "wb") as _:
-                pass
+            path = self.dump_path(name)
+            with open(path, "wb") as _:
+                self.__dumps[path].reset()
 
         # Writes code onto "workspace/output.lua" which properly outputs to our console.
         olua: str = os.path.join(self.workspace_dir, "output.lua")
@@ -114,9 +149,9 @@ class api_base:
     def dump_path(self, name: str) -> str:
         return os.path.join(self.workspace_dir, f"_{name}.dat")
 
-    def dump_get(self, name: str) -> dump | None:
+    def dump_get(self, name: str) -> output_dump | None:
         path = self.dump_path(name)
-        return self.__dumps.setdefault(path, dump(path))
+        return self.__dumps.setdefault(path, output_dump(path))
 
     # https://github.com/dabeaz/generators/blob/master/examples/follow.py
     def dump_follow(self, name: str, print=print) -> bool:
@@ -137,7 +172,7 @@ class api_base:
         path = self.dump_path(name)
         if path in self.__dumps:
             return self.__dumps[path].reset()
-        self.__dumps[path] = dump(path)
+        self.__dumps[path] = output_dump(path)
         return 0
 
 
