@@ -93,10 +93,10 @@ class api_base:
             pass
         self.__output_io = open(path, "rb")
 
-        for name in executors.dump.CLEAR_ON_RUN_NAMES:
-            path = self.dump_path(name)
+        for name in CLEAR_ON_RUN_NAMES:
+            path, dump = self.dump_get(name)
             with open(path, "wb") as _:
-                self.__dumps[path].reset()
+                dump.reset()
 
         # Writes code onto "workspace/output.lua" which properly outputs to our console.
         olua: str = os.path.join(self.workspace_dir, "output.lua")
@@ -149,13 +149,13 @@ class api_base:
     def dump_path(self, name: str) -> str:
         return os.path.join(self.workspace_dir, f"_{name}.dat")
 
-    def dump_get(self, name: str) -> output_dump | None:
+    def dump_get(self, name: str) -> tuple[str, output_dump]:
         path = self.dump_path(name)
-        return self.__dumps.setdefault(path, output_dump(path))
+        return path, self.__dumps.setdefault(path, output_dump(path))
 
     # https://github.com/dabeaz/generators/blob/master/examples/follow.py
     def dump_follow(self, name: str, print=print) -> bool:
-        dump = self.dump_get(name)
+        path, dump = self.dump_get(name)
         data = bytes()
         done = False
         while dump:
