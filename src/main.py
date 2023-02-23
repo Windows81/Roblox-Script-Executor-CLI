@@ -4,7 +4,8 @@ import sys
 import os
 
 # Makes importing DLLs manageable.
-cdir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_dir: str = os.path.dirname(os.path.abspath(__file__))
+cdir: str = os.path.dirname(src_dir)
 if cdir == "":
     print(
         "Python was unable to get the main directory.  "
@@ -12,13 +13,14 @@ if cdir == "":
     )
     exit(1)
 
+sys.path.append(src_dir)
 sys.path.append(cdir)
 os.chdir(cdir)
 
 #from executors.oxygen import api_oxy
-from executors.base import api_upd
-from executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
-from executors.krnl import api_krnl_exe
+from api.base import api_upd
+from api.executors.wearedevs import api_wrd_dll, api_wrd_exe, api_wrd_inj
+from api.executors.krnl import api_krnl_exe
 
 EXEC_TYPES = {
     "wearedevs-dll": api_wrd_dll,
@@ -62,9 +64,11 @@ if __name__ == "__main__":
                 api_class.update()
             else:
                 print('"--update" is not valid; execution method must be updated manually.')
+                exit(1)
 
         client = interface.client(api_class(), interface.command_mode.PREFIX)
         print("Executor has been successfully injected.")
         interface.process(client)
-    except ConnectionError as e:
+    except Exception as e:
         print(e)
+        exit(1)

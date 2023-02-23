@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-import executors.base as base
 from collections import deque
 from io import BufferedReader
 from functools import cache
 from enum import Enum
+import api.base as base
 import requests
 import typing
 import time
@@ -627,7 +627,7 @@ def process(client: client, input_gen=INPUT_GEN) -> None:
                 script_lines = [result.script]
 
             elif result.status == parse_status.RESTART:
-                client.api.restart()
+                client.api.reset()
 
             elif result.status == parse_status.CLEAR:
                 print("\033c", end="")

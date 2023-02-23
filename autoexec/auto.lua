@@ -8,10 +8,11 @@ local SCRIPTS = { --
 	'far-click.lua',
 	'tele-key.lua',
 	-- 'fly.lua',
-	-- 'auto-rej.lua',
+	-- 'auto-rejoin.lua',
 	-- 'mute.lua',
 	'locale.lua',
 	'_rspy.lua',
+	'set-country.lua',
 	'event-log.lua',
 }
 
