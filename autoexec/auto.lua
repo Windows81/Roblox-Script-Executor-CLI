@@ -1,5 +1,5 @@
 -- Script paths that are automatically loaded once injected.
-local SCRIPTS = { --
+local SCRIPTS = {
 	-- 'input.lua',
 	'hop.lua',
 	'anti-afk.lua',
@@ -11,8 +11,8 @@ local SCRIPTS = { --
 	-- 'auto-rejoin.lua',
 	-- 'mute.lua',
 	'locale.lua',
-	'_rspy.lua',
-	'set-country.lua',
+	-- '_rspy.lua',
+	'country.lua',
 	'event-log.lua',
 }
 
