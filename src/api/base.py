@@ -91,8 +91,10 @@ class api_base:
     def is_attached(self) -> bool:
         raise NotImplementedError()
 
-    def output_call(self, s, suffix="nil", pretty=True) -> str:
-        return f"_E.EXEC('save',{repr(self.output_path)},{s},{'true' if pretty else 'false'},{suffix},true)"
+    def output_call(self, message: str, suffix: str = "nil", pretty: bool = True) -> str:
+        return f"""
+        _E.EXEC('save', {repr(self.output_path)}, {message}, {'true' if pretty else 'false'}, {suffix}, true)
+        """
 
     def output_follow(self) -> bool:
         data: bytes = bytes()

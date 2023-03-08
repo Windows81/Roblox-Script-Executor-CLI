@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
         client = interface.client(api_class(), interface.command_mode.PREFIX)
         print("Executor has been successfully injected.")
-        interface.process(client)
+        client.process()
     except Exception as e:
         print(e)
         exit(1)
