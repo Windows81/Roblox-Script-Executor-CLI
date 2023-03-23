@@ -11,7 +11,7 @@ local SCRIPTS = {
 	-- 'auto-rejoin.lua',
 	-- 'mute.lua',
 	'locale.lua',
-	-- '_rspy.lua',
+	-- 'rspy.lua',
 	'country.lua',
 	'event-log.lua',
 }
