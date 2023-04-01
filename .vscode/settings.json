@@ -38,7 +38,9 @@
 		"gethiddenproperty",
 		"_E",
 		"_E.RETURN",
-		"_E.ARGS"
+		"_E.ARGS",
+		"getcallingscript",
+		"checkcaller"
 	],
 	"robloxLsp.misc.color3Picker": true,
 	"robloxLsp.diagnostics.disable": [

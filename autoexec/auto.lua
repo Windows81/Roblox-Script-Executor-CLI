@@ -1,18 +1,17 @@
 -- Script paths that are automatically loaded once injected.
 local SCRIPTS = {
-	-- 'input.lua',
 	'hop.lua',
-	'anti-afk.lua',
-	-- 'anti-kick.lua',
 	'zoom-dist.lua',
 	'far-click.lua',
 	'tele-key.lua',
 	-- 'fly.lua',
 	-- 'auto-rejoin.lua',
 	-- 'mute.lua',
-	'locale.lua',
+	-- 'locale.lua',
+	-- 'country.lua',
 	-- 'rspy.lua',
-	'country.lua',
+	-- 'anti-kick.lua',
+	'anti-afk.lua',
 	'event-log.lua',
 }
 
