@@ -612,7 +612,7 @@ class client:
 
                         # Syntax error protection: check a few times if the flag was set to true in the other snippet.
                         f"""
-                        local c = 7
+                        local c = 23
                         repeat c = c - 1
                         task.wait(0)
                         if {var} then
