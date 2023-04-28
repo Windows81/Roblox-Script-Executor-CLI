@@ -26,7 +26,7 @@ spm.SecurityProtocol = System.Net.SecurityProtocolType(16320)
 
 
 class api_wrd_base(base.api_ver, base.api_base):
-    RBLX_VERSION = 'version-40b6a27c6c4d46ef'
+    RBLX_VERSION = 'version-31b938635c234124'
 
 
 class api_wrd_dll(api_wrd_base):
