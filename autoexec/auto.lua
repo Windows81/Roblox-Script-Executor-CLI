@@ -10,7 +10,7 @@ local SCRIPTS = {
 	-- 'mute.lua',
 	-- 'country.lua',
 	-- 'anti-kick.lua',
-	'rspy.lua',
+	-- 'rspy.lua',
 	'anti-afk.lua',
 	'event-log.lua',
 }

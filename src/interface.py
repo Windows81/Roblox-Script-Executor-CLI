@@ -508,10 +508,18 @@ class client:
         if len(line) == 0:
             return parse_result(parse_status.RAW)
 
-        if line[0] in [';', ':']:
-            line = line[1:]
+        # Output shorthand prefix which we can use from Studio.
+        elif line[0] == '=':
+            return self.cmd_output(line[1], level)
+
         elif self.mode == command_mode.PREFIX and level == 0:
-            return self.cmd_snippet(line, level)
+            if line[0] in [';', ':']:
+                line = line[1:]
+            else:
+                return self.cmd_snippet(line, level)
+        else:
+            if line[0] in [';', ':']:
+                line = line[1:]
 
         head, body = (*line.split(" ", 1), "")[0:2]
         head_l = head.lower()
