@@ -1,3 +1,11 @@
+<p align="center">This project has not been maintained since May 2023.</p>
+
+<p align="center"><strong>Keep Byfron Bypassed™</strong></p>
+
+---
+
+---
+
 <h1 align="center">• R𝒮𝐸𝒳EC •</h1>
 
 **R**oblox **S**cript **Exec**utor (rsexec) is a command-line interface that primarily uses the WeAreDevs API to run scripts on the Rōblox client. Sister repository to [Personal Roblox Client Scripts](https://github.com/Windows81/Personal-Roblox-Client-Scripts).
